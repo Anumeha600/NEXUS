@@ -3,5 +3,8 @@ export type { ChallengeResultEvent } from "./GameCanvas";
 export * from "./adaptiveEngine";
 export * from "./physics";
 export * from "./gravitationSim";
+export type { GravitationSceneProps } from "./GravitationScene";
 export { default as GravitationScene } from "./GravitationScene";
 export * from "./gravitationRender";
+export * from "./gravitationChallenge";
+export { default as GravitationChallengeScene } from "./GravitationChallengeScene";
