@@ -101,10 +101,10 @@ const SPACE_PALETTE = {
   gravity: "#f0a916",
   planet: "#8fd3ff",
   distance: "rgba(255,255,255,0.55)",
-  trajectoryRunning: "rgba(143,211,255,0.55)",
-  trajectoryOrbit: "rgba(120,220,180,0.6)",
-  trajectoryCollision: "rgba(230,80,80,0.6)",
-  trajectoryEscape: "rgba(170,140,255,0.65)",
+  trajectoryRunning: "rgba(143,211,255,0.7)",
+  trajectoryOrbit: "rgba(120,220,180,0.75)",
+  trajectoryCollision: "rgba(230,80,80,0.75)",
+  trajectoryEscape: "rgba(170,140,255,0.8)",
 };
 
 const STATUS_LABEL: Record<GravitationSimStatus, string> = {
@@ -154,6 +154,17 @@ function drawBackground(ctx: CanvasRenderingContext2D, w: number, h: number): vo
 }
 
 function drawStar(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  // A soft, wide halo first so the star reads unmistakably as "the
+  // gravitational source" even at a glance, before the smaller bright core
+  // that actually marks its exact position.
+  const halo = ctx.createRadialGradient(x, y, 0, x, y, 68);
+  halo.addColorStop(0, "rgba(255,214,140,0.28)");
+  halo.addColorStop(1, "rgba(255,214,140,0)");
+  ctx.fillStyle = halo;
+  ctx.beginPath();
+  ctx.arc(x, y, 68, 0, Math.PI * 2);
+  ctx.fill();
+
   const outerGlow = ctx.createRadialGradient(x, y, 0, x, y, 46);
   outerGlow.addColorStop(0, SPACE_PALETTE.starGlow);
   outerGlow.addColorStop(1, "rgba(255,214,140,0)");
@@ -162,13 +173,13 @@ function drawStar(ctx: CanvasRenderingContext2D, x: number, y: number): void {
   ctx.arc(x, y, 46, 0, Math.PI * 2);
   ctx.fill();
 
-  const core = ctx.createRadialGradient(x - 3, y - 3, 1, x, y, 16);
+  const core = ctx.createRadialGradient(x - 3, y - 3, 1, x, y, 17);
   core.addColorStop(0, "#fffdf5");
   core.addColorStop(0.5, "#ffd27a");
   core.addColorStop(1, "#e0862c");
   ctx.fillStyle = core;
   ctx.beginPath();
-  ctx.arc(x, y, 16, 0, Math.PI * 2);
+  ctx.arc(x, y, 17, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -176,8 +187,9 @@ function drawTrajectory(ctx: CanvasRenderingContext2D, transform: GravitationVie
   if (state.trajectory.length < 2) return;
   ctx.save();
   ctx.strokeStyle = trajectoryColorFor(state.status);
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 2.5;
   ctx.lineJoin = "round";
+  ctx.lineCap = "round";
   ctx.beginPath();
   state.trajectory.forEach((point, i) => {
     const p = physicsToScreen(transform, point.x, point.y);
@@ -189,13 +201,21 @@ function drawTrajectory(ctx: CanvasRenderingContext2D, transform: GravitationVie
 }
 
 function drawPlanet(ctx: CanvasRenderingContext2D, x: number, y: number): void {
-  const grad = ctx.createRadialGradient(x - 2, y - 2, 0.5, x, y, 7);
+  // A thin dark outline keeps the planet distinguishable from a
+  // similarly-colored trajectory or background star field, regardless of
+  // whatever it happens to be crossing at the moment.
+  ctx.beginPath();
+  ctx.arc(x, y, 9, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(5,6,26,0.6)";
+  ctx.fill();
+
+  const grad = ctx.createRadialGradient(x - 2, y - 2, 0.5, x, y, 7.5);
   grad.addColorStop(0, "#f4fbff");
   grad.addColorStop(0.55, SPACE_PALETTE.planet);
   grad.addColorStop(1, "#2f6fe0");
   ctx.fillStyle = grad;
   ctx.beginPath();
-  ctx.arc(x, y, 7, 0, Math.PI * 2);
+  ctx.arc(x, y, 7.5, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -260,16 +280,37 @@ function drawDistanceIndicator(ctx: CanvasRenderingContext2D, star: { x: number;
   ctx.textAlign = "left";
 }
 
+function statusBadgeColorFor(status: GravitationSimStatus): string {
+  if (status === "orbit") return "#5fe0b0";
+  if (status === "collision") return "#ff8a8a";
+  if (status === "escape") return "#c7b6ff";
+  return "rgba(255,255,255,0.85)";
+}
+
 function drawStatusBadge(ctx: CanvasRenderingContext2D, w: number, status: GravitationSimStatus): void {
   const label = STATUS_LABEL[status];
   ctx.font = "700 11px system-ui, sans-serif";
   const textW = ctx.measureText(label).width;
-  const x = w - textW - 26;
-  const y = 16;
-  ctx.fillStyle = "rgba(255,255,255,0.08)";
-  ctx.fillRect(x - 6, y - 12, textW + 12, 20);
-  ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.fillText(label, x, y + 3);
+  const paddingX = 12;
+  const pillW = textW + paddingX * 2;
+  const pillH = 22;
+  const x = w - pillW - 14;
+  const y = 8;
+  ctx.save();
+  ctx.fillStyle = "rgba(5,6,26,0.55)";
+  const r = pillH / 2;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + pillW, y, x + pillW, y + pillH, r);
+  ctx.arcTo(x + pillW, y + pillH, x, y + pillH, r);
+  ctx.arcTo(x, y + pillH, x, y, r);
+  ctx.arcTo(x, y, x + pillW, y, r);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = statusBadgeColorFor(status);
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, x + paddingX, y + pillH / 2 + 1);
+  ctx.restore();
 }
 
 // The Layer 3 entry point: draws one frame of the gravitation scene from

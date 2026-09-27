@@ -224,3 +224,36 @@ export function resetGravitationAttempt(state: GravitationPlayState, setup: Grav
 export function areGravitationControlsLocked(state: GravitationPlayState): boolean {
   return state.phase !== "READY";
 }
+
+// --------------------------------------------------------------------------
+// Layer 6 - small presentational helpers. Pure text/number formatting only;
+// none of this decides physics or correctness (that's gravitationSim.ts and
+// gravitationLearning.ts respectively) - it only phrases what already
+// happened, or positions an existing number on a 0-100% scale for a slider.
+// --------------------------------------------------------------------------
+
+// The exact per-outcome explanation the Layer 6 brief specifies - one
+// sentence, phrased around what the simulation's own status means, never a
+// second outcome classification.
+export function gravitationOutcomeExplanation(status: "orbit" | "collision" | "escape"): string {
+  if (status === "orbit") return "The selected velocity produced a bounded orbit.";
+  if (status === "escape") return "The planet exceeded the escape condition.";
+  return "The initial velocity was insufficient to maintain a stable trajectory, and the planet fell into the star.";
+}
+
+// A calm, player-facing message for a concept gravitationLearning.ts reports
+// as not-yet-scorable (currently only CONCEPT_GRAVITATIONAL_FORCE) - never
+// the raw developer-facing `reason` string, which explains the architecture
+// gap for whoever reads the code, not for the player.
+export function gravitationUnsupportedPlayerMessage(): string {
+  return "This challenge type is exploration-only for now - it isn't scored yet.";
+}
+
+// Where a value sits between min and max, as a 0-100 percentage - used to
+// position reference markers (orbital/escape velocity) on the velocity
+// slider without touching the slider's own min/max/value, which stay
+// exactly what the simulation was given.
+export function velocitySliderPercent(min: number, max: number, value: number): number {
+  if (max <= min) return 0;
+  return Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
+}

@@ -10,6 +10,9 @@ import {
   applyGravitationSimStatus,
   resetGravitationAttempt,
   areGravitationControlsLocked,
+  gravitationOutcomeExplanation,
+  gravitationUnsupportedPlayerMessage,
+  velocitySliderPercent,
 } from "./gravitationChallenge";
 
 // Same helper pattern adaptiveEngine.test.ts itself uses to force a specific
@@ -228,5 +231,49 @@ describe("gravitation play state machine (READY / RUNNING / OUTCOME)", () => {
       return resetGravitationAttempt(s, setup);
     }
     expect(runOnce()).toEqual(runOnce());
+  });
+});
+
+describe("Layer 6 presentational helpers", () => {
+  describe("gravitationOutcomeExplanation", () => {
+    it("explains orbit as a bounded orbit produced by the selected velocity", () => {
+      expect(gravitationOutcomeExplanation("orbit")).toBe("The selected velocity produced a bounded orbit.");
+    });
+
+    it("explains escape as exceeding the escape condition", () => {
+      expect(gravitationOutcomeExplanation("escape")).toBe("The planet exceeded the escape condition.");
+    });
+
+    it("explains collision as insufficient velocity to maintain a stable trajectory", () => {
+      expect(gravitationOutcomeExplanation("collision")).toContain("insufficient");
+      expect(gravitationOutcomeExplanation("collision")).toContain("fell into the star");
+    });
+  });
+
+  it("gravitationUnsupportedPlayerMessage never leaks a raw developer-facing reason string", () => {
+    const message = gravitationUnsupportedPlayerMessage();
+    expect(message.length).toBeGreaterThan(0);
+    expect(message.toLowerCase()).not.toContain("architecture");
+    expect(message.toLowerCase()).not.toContain("abstraction");
+  });
+
+  describe("velocitySliderPercent", () => {
+    it("maps the minimum to 0% and the maximum to 100%", () => {
+      expect(velocitySliderPercent(0, 10, 0)).toBe(0);
+      expect(velocitySliderPercent(0, 10, 10)).toBe(100);
+    });
+
+    it("maps a midpoint value to 50%", () => {
+      expect(velocitySliderPercent(0, 10, 5)).toBe(50);
+    });
+
+    it("clamps values outside [min, max] instead of returning an out-of-range percentage", () => {
+      expect(velocitySliderPercent(0, 10, -5)).toBe(0);
+      expect(velocitySliderPercent(0, 10, 15)).toBe(100);
+    });
+
+    it("never divides by zero when min and max collide, returning 0 instead of NaN/Infinity", () => {
+      expect(velocitySliderPercent(5, 5, 5)).toBe(0);
+    });
   });
 });

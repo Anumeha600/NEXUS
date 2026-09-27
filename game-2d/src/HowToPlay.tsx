@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MODULE_PROJECTILE, MODULE_NEWTON, MODULE_WORK_ENERGY, MODULE_MOMENTUM, MODULE_CIRCULAR, type Challenge } from "./adaptiveEngine";
+import { MODULE_PROJECTILE, MODULE_NEWTON, MODULE_WORK_ENERGY, MODULE_MOMENTUM, MODULE_CIRCULAR, MODULE_GRAVITATION, type Challenge } from "./adaptiveEngine";
 import { actionLabelFor } from "./challengeLogic";
 
 interface HelpContent {
@@ -61,6 +61,20 @@ const HELP_CONTENT: Record<string, HelpContent> = {
     confirmStep: "Confirm the requested centripetal quantity.",
     physicsTip: "Centripetal force always points toward the center: F_c = mv² / r.",
   },
+  // Gravitation is not yet reachable through GameCanvas.tsx/MODULE_SEQUENCE
+  // (see adaptiveEngine.ts), but its own standalone GravitationChallengeScene
+  // renders this same shared HowToPlay component - see the note on step 3
+  // below for why its "press X" step is worded here rather than left to
+  // actionLabelFor.
+  [MODULE_GRAVITATION]: {
+    description: "Launch a planet at a chosen velocity and see whether gravity pulls it into the star, holds it in orbit, or lets it escape.",
+    readStep: "Read the star's mass and the planet's starting distance.",
+    adjustStep: "Choose the planet's initial velocity using the slider.",
+    observeStep: "Watch the planet's trajectory curve under gravity.",
+    confirmStep:
+      "Interpret the result: too little velocity falls into the star, orbital velocity gives a bounded orbit, an intermediate velocity gives an elliptical orbit, and a high enough velocity escapes.",
+    physicsTip: "Orbital velocity v = √(GM/r); escape velocity v = √(2GM/r) - always √2 times faster than a circular orbit at the same distance.",
+  },
 };
 
 // Every currently playable module must have an entry above - this is what a
@@ -77,6 +91,11 @@ export default function HowToPlay({ challenge, belowFullscreenButton }: { challe
   const [open, setOpen] = useState(false);
   const content = HELP_CONTENT[challenge.moduleId];
   if (!content) return null;
+  // actionLabelFor only has cases for the five modules wired into
+  // GameCanvas.tsx/challengeLogic.ts - gravitation's own button says
+  // "Launch", not whatever unrelated default actionLabelFor would fall
+  // through to for an unrecognized moduleId/conceptId.
+  const actionWord = challenge.moduleId === MODULE_GRAVITATION ? "Launch" : actionLabelFor(challenge);
 
   return (
     <>
@@ -107,7 +126,7 @@ export default function HowToPlay({ challenge, belowFullscreenButton }: { challe
           <ol className="mt-2 space-y-1 text-xs text-ink">
             <li>1. {content.readStep}</li>
             <li>2. {content.adjustStep}</li>
-            <li>3. Press &ldquo;{actionLabelFor(challenge)}&rdquo;.</li>
+            <li>3. Press &ldquo;{actionWord}&rdquo;.</li>
             <li>4. {content.observeStep}</li>
             <li>5. {content.confirmStep}</li>
           </ol>
