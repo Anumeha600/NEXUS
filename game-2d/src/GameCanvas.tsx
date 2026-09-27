@@ -532,9 +532,15 @@ export default function GameCanvas({
         </p>
       </div>
 
-      {/* Solve-and-submit control: numeric input is the primary interaction */}
-      <div className="pointer-events-auto absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-1.5">
-        <div className="flex items-center gap-2 rounded-full border-2 border-border bg-white/95 px-3 py-2 shadow-lg">
+      {/* Solve-and-submit control: numeric input is the primary interaction.
+          w-[calc(100%-2rem)]/max-w-md caps this row to the canvas card's own
+          width (minus its side margin) at every viewport, and flex-wrap on
+          the panel below lets RUN EXPERIMENT's wide label drop to its own
+          line instead of forcing the row past the card's edge - the panel
+          grows taller, never wider than its card, so the button can never
+          render outside it. */}
+      <div className="pointer-events-auto absolute bottom-4 left-1/2 z-10 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 flex-col items-center gap-1.5">
+        <div className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-full border-2 border-border bg-white/95 px-3 py-2 shadow-lg">
           <button
             onClick={() => adjust(-1)}
             disabled={phase !== "playing"}

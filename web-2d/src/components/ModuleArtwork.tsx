@@ -169,43 +169,104 @@ function WorkEnergyArt({ className }: ArtProps) {
   );
 }
 
-// Two carts on a track approaching a shared impact point.
+// Momentum & Collisions Physics Park arena - deliberately matches the real
+// game scene's own visual identity (game-2d/src/render.ts: drawMomentumScene
+// / themeFor(MODULE_MOMENTUM) / drawMomentumCart), not a generic daylight
+// track like the other four cards: dusk purple/blue sky, an elevated
+// electric-blue rail on support struts, and angular orange/cyan wedge carts
+// (PALETTE.orange #e0682c, PALETTE.cyan #19b6d1) approaching a red dashed
+// collision marker - so clicking through to the actual module feels
+// continuous with its card art instead of a re-skin.
 function MomentumArt({ className }: ArtProps) {
+  const railTopY = 158;
+  const railBottomY = 172;
+  const groundY = 190;
+
   return (
     <svg viewBox="0 0 400 220" className={className} aria-hidden="true">
       <defs>
-        <linearGradient id="art-momentum-bg" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#FDEDEA" />
-          <stop offset="100%" stopColor="#F8F7FF" />
+        <linearGradient id="art-momentum-sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#141A3D" />
+          <stop offset="55%" stopColor="#2A2F6B" />
+          <stop offset="100%" stopColor="#4A3A6B" />
+        </linearGradient>
+        <linearGradient id="art-momentum-rail" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#4A5580" />
+          <stop offset="55%" stopColor="#232840" />
+          <stop offset="100%" stopColor="#12141F" />
+        </linearGradient>
+        <linearGradient id="art-momentum-ground" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#3A3F52" />
+          <stop offset="100%" stopColor="#1C1F2E" />
+        </linearGradient>
+        <linearGradient id="art-momentum-cartA" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#F0A978" />
+          <stop offset="100%" stopColor="#E0682C" />
+        </linearGradient>
+        <linearGradient id="art-momentum-cartB" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#7FE0EF" />
+          <stop offset="100%" stopColor="#19B6D1" />
         </linearGradient>
       </defs>
 
-      <rect width="400" height="220" fill="url(#art-momentum-bg)" />
+      <rect width="400" height="220" fill="url(#art-momentum-sky)" />
 
-      {/* track */}
-      <line x1="20" y1="168" x2="380" y2="168" stroke="#E6C9C4" strokeWidth="3" />
+      {/* atmospheric haze near the horizon */}
+      <rect x="0" y="140" width="400" height="50" fill="rgba(61,92,255,0.22)" />
 
-      {/* cart A (red, moving right) */}
-      <rect x="50" y="128" width="66" height="38" rx="8" fill="#D1483A" />
-      <circle cx="66" cy="168" r="9" fill="#17182B" />
-      <circle cx="100" cy="168" r="9" fill="#17182B" />
-      <line x1="30" y1="147" x2="46" y2="147" stroke="#E6C9C4" strokeWidth="4" strokeLinecap="round" />
-      <path d="M 120 147 L 134 140 L 134 154 Z" fill="#D1483A" opacity="0.85" />
+      {/* distant hill silhouettes */}
+      <path d="M -10 175 Q 90 138 210 170 L 210 220 L -10 220 Z" fill="#2E2A52" opacity="0.75" />
+      <path d="M 170 182 Q 290 150 410 178 L 410 220 L 170 220 Z" fill="#3A2F5E" opacity="0.85" />
 
-      {/* cart B (cyan, moving left) */}
-      <rect x="284" y="128" width="66" height="38" rx="8" fill="#20C7D9" />
-      <circle cx="300" cy="168" r="9" fill="#17182B" />
-      <circle cx="334" cy="168" r="9" fill="#17182B" />
-      <line x1="354" y1="147" x2="370" y2="147" stroke="#BFE9EE" strokeWidth="4" strokeLinecap="round" />
-      <path d="M 280 147 L 266 140 L 266 154 Z" fill="#20C7D9" opacity="0.85" />
+      {/* ground */}
+      <rect x="0" y={groundY} width="400" height={220 - groundY} fill="url(#art-momentum-ground)" />
 
-      {/* impact burst */}
-      <g stroke="#F4B942" strokeWidth="3" strokeLinecap="round" opacity="0.85">
-        <line x1="200" y1="147" x2="200" y2="131" />
-        <line x1="188" y1="147" x2="178" y2="139" />
-        <line x1="212" y1="147" x2="222" y2="139" />
+      {/* tree/foliage silhouette clusters along the horizon */}
+      <g fill="#2A2F52" opacity="0.8">
+        <circle cx="48" cy={groundY - 6} r="10" />
+        <circle cx="60" cy={groundY - 3} r="7" />
+        <circle cx="356" cy={groundY - 5} r="9" />
       </g>
-      <circle cx="200" cy="147" r="6" fill="#F4B942" />
+      <g fill="#3A3F66" opacity="0.9">
+        <circle cx="34" cy={groundY - 2} r="8" />
+        <circle cx="368" cy={groundY - 1} r="7" />
+        <circle cx="380" cy={groundY - 4} r="6" />
+      </g>
+
+      {/* elevated rail platform, on support struts planted in the ground */}
+      <g stroke="#3A3F66" strokeWidth="4" strokeLinecap="round" opacity="0.9">
+        <line x1="70" y1={railBottomY} x2="70" y2={groundY} />
+        <line x1="150" y1={railBottomY} x2="150" y2={groundY} />
+        <line x1="250" y1={railBottomY} x2="250" y2={groundY} />
+        <line x1="330" y1={railBottomY} x2="330" y2={groundY} />
+      </g>
+      <rect x="30" y={railTopY} width="340" height={railBottomY - railTopY} rx="4" fill="url(#art-momentum-rail)" />
+      <line x1="30" y1={railTopY} x2="370" y2={railTopY} stroke="#3D5CFF" strokeWidth="2" opacity="0.85" />
+
+      {/* collision marker at the rail's center */}
+      <line x1="200" y1="122" x2="200" y2={railTopY} stroke="#E6394B" strokeWidth="2" strokeDasharray="4 4" />
+      <circle cx="200" cy={railTopY} r="5" fill="#F4B942" opacity="0.55" />
+
+      {/* Cart A - orange, approaching from the left */}
+      <path
+        d={`M 114 ${railTopY - 4} L 121 ${railTopY - 30} L 159 ${railTopY - 30} L 166 ${railTopY - 4} Z`}
+        fill="url(#art-momentum-cartA)"
+      />
+      <rect x="130" y={railTopY - 39} width="20" height="12" rx="3" fill="#0E0F18" />
+      <circle cx="122" cy={railTopY - 6} r="7" fill="#14161F" />
+      <circle cx="158" cy={railTopY - 6} r="7" fill="#14161F" />
+      {/* velocity arrow */}
+      <line x1="170" y1={railTopY - 20} x2="196" y2={railTopY - 20} stroke="#FFF6E4" strokeWidth="3" strokeLinecap="round" />
+      <path d={`M 196 ${railTopY - 20} L 188 ${railTopY - 26} L 188 ${railTopY - 14} Z`} fill="#FFF6E4" />
+
+      {/* Cart B - cyan, approaching from the right */}
+      <path
+        d={`M 234 ${railTopY - 4} L 241 ${railTopY - 30} L 279 ${railTopY - 30} L 286 ${railTopY - 4} Z`}
+        fill="url(#art-momentum-cartB)"
+      />
+      <rect x="250" y={railTopY - 39} width="20" height="12" rx="3" fill="#0E0F18" />
+      <circle cx="242" cy={railTopY - 6} r="7" fill="#14161F" />
+      <circle cx="278" cy={railTopY - 6} r="7" fill="#14161F" />
     </svg>
   );
 }
