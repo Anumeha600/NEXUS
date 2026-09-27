@@ -94,6 +94,28 @@ export function physicsVectorToScreen(transform: GravitationViewTransform, vx: n
   return { x: vx * transform.scale, y: vy * transform.scale };
 }
 
+// A point offset perpendicular to the line from a to b, at its midpoint -
+// used to keep the distance label clear of the star-planet line itself.
+// That line is exactly where the gravity vector's own label ends up too
+// (gravity always points directly at the star, i.e. exactly along this
+// same line), so a label placed ON the line - as the distance label used to
+// be - can visually collide with it. Moving it beside the line instead
+// fixes that without changing the line, the vector, or the distance value
+// itself. Degenerates to the plain midpoint if a and b coincide, rather
+// than dividing by zero.
+export function perpendicularLabelPoint(ax: number, ay: number, bx: number, by: number, offset: number): { x: number; y: number } {
+  const midX = (ax + bx) / 2;
+  const midY = (ay + by) / 2;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-6) return { x: midX, y: midY };
+  const ux = dx / len;
+  const uy = dy / len;
+  // Rotate the unit direction 90 degrees to get a perpendicular direction.
+  return { x: midX - uy * offset, y: midY + ux * offset };
+}
+
 const SPACE_PALETTE = {
   starCore: "#fff4d6",
   starGlow: "rgba(255,214,140,0.85)",
@@ -255,6 +277,11 @@ function drawArrow(ctx: CanvasRenderingContext2D, x: number, y: number, dx: numb
   ctx.textAlign = "left";
 }
 
+// Offset far enough that the label clears both the dashed line itself and
+// the gravity vector's own label (drawArrow places a label ~10px beyond the
+// arrow's tip, along this same star-planet line) at any planet distance.
+const DISTANCE_LABEL_OFFSET = 16;
+
 function drawDistanceIndicator(ctx: CanvasRenderingContext2D, star: { x: number; y: number }, planet: { x: number; y: number }, distance: number): void {
   ctx.save();
   ctx.strokeStyle = SPACE_PALETTE.distance;
@@ -267,17 +294,21 @@ function drawDistanceIndicator(ctx: CanvasRenderingContext2D, star: { x: number;
   ctx.setLineDash([]);
   ctx.restore();
 
-  const midX = (star.x + planet.x) / 2;
-  const midY = (star.y + planet.y) / 2;
+  // The line itself still spans exactly star -> planet, unchanged - only
+  // the label is moved beside it, clear of both the line and the
+  // collinear gravity-vector label.
+  const labelPoint = perpendicularLabelPoint(star.x, star.y, planet.x, planet.y, DISTANCE_LABEL_OFFSET);
   const label = `r = ${distance.toFixed(2)}`;
   ctx.font = "700 10px system-ui, sans-serif";
   const textW = ctx.measureText(label).width;
   ctx.fillStyle = "rgba(5,6,26,0.6)";
-  ctx.fillRect(midX - textW / 2 - 5, midY - 15, textW + 10, 16);
+  ctx.fillRect(labelPoint.x - textW / 2 - 5, labelPoint.y - 8, textW + 10, 16);
   ctx.fillStyle = "rgba(255,255,255,0.9)";
   ctx.textAlign = "center";
-  ctx.fillText(label, midX, midY - 3);
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, labelPoint.x, labelPoint.y + 1);
   ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
 }
 
 function statusBadgeColorFor(status: GravitationSimStatus): string {

@@ -103,6 +103,38 @@ for (const [moduleId, concepts] of Object.entries(CONCEPT_SEQUENCE)) {
   for (const c of concepts) MODULE_OF_CONCEPT[c] = moduleId;
 }
 
+// Concepts that exist in a module's curriculum/concept sequence but aren't
+// yet eligible for SCORED adaptive challenge generation - today, exactly
+// CONCEPT_GRAVITATIONAL_FORCE: its challenge is a numeric-answer question
+// ("what is the force/distance/planet mass?"), but the gameplay built for
+// it (game-2d/src/GravitationChallengeScene.tsx) is a velocity-launch
+// experiment with no channel for the player to submit that numeric answer -
+// see gravitationLearning.ts's own documented gap. A concept listed here
+// still keeps its place in CONCEPT_SEQUENCE (its curriculum entry, its
+// baseline mastery, its module-mastery contribution are all untouched) - it
+// is only skipped when the engine picks a module's STARTING concept or
+// ADVANCES within a module, so a fresh or progressing session can never
+// land on a concept with no way to score an attempt. This is deliberately a
+// generic, per-concept mechanism (not a gravitation-specific branch) so any
+// future module can mark a concept exploration-only the same way, without
+// touching mastery formulas, recordAttempt, learning-event semantics, or
+// the STRUGGLE/MASTERED thresholds.
+const EXPLORATION_ONLY_CONCEPTS = new Set<string>([CONCEPT_GRAVITATIONAL_FORCE]);
+
+// CONCEPT_SEQUENCE filtered to only the concepts currently eligible for
+// scored generation - used solely for concept SELECTION (the constructor's
+// starting concept, and evaluateContentTransition's within-module
+// advancement). For every one of the 5 existing modules this is byte-for-
+// byte identical to CONCEPT_SEQUENCE (none of their concepts are
+// exploration-only), so their starting concept and advancement order are
+// completely unaffected. generateNextChallenge() itself is untouched - it
+// still just generates a challenge for whatever currentConceptId already
+// is, so it never independently re-derives eligibility.
+const SCORED_CONCEPT_SEQUENCE: Record<string, string[]> = {};
+for (const [moduleId, concepts] of Object.entries(CONCEPT_SEQUENCE)) {
+  SCORED_CONCEPT_SEQUENCE[moduleId] = concepts.filter((c) => !EXPLORATION_ONLY_CONCEPTS.has(c));
+}
+
 const LEARNING_RATE = 0.25;
 const TREND_WEIGHT = 0.05;
 const HISTORY_LIMIT = 5;
@@ -273,14 +305,19 @@ export class AdaptiveEngine {
   // dashboard card linking to /play?module=newton) instead of always
   // beginning at Projectile Motion. It only picks where a *fresh* engine
   // starts - mastery, progression and every other rule are unaffected, and
-  // an unrecognized id falls back to the normal default.
+  // an unrecognized id falls back to the normal default. The starting
+  // concept is the module's first SCORED-eligible one (see
+  // SCORED_CONCEPT_SEQUENCE) - identical to CONCEPT_SEQUENCE[startModuleId][0]
+  // for every module with no exploration-only concepts, which today is all
+  // 5 existing modules.
   constructor(startModuleId?: string) {
     for (const concepts of Object.values(CONCEPT_SEQUENCE)) {
       for (const c of concepts) this.conceptMastery[c] = 0.3;
     }
     if (startModuleId && CONCEPT_SEQUENCE[startModuleId]) {
       this.currentModuleId = startModuleId;
-      this.currentConceptId = CONCEPT_SEQUENCE[startModuleId][0];
+      const scored = SCORED_CONCEPT_SEQUENCE[startModuleId];
+      this.currentConceptId = scored.length > 0 ? scored[0] : CONCEPT_SEQUENCE[startModuleId][0];
     }
   }
 
@@ -348,7 +385,11 @@ export class AdaptiveEngine {
     }
 
     if (m >= MASTERED_THRESHOLD) {
-      const sequence = CONCEPT_SEQUENCE[this.currentModuleId];
+      // Advances only within the module's SCORED concepts - an
+      // exploration-only concept (see EXPLORATION_ONLY_CONCEPTS) is never a
+      // destination here, even though it still occupies its own place in
+      // CONCEPT_SEQUENCE for curriculum/mastery-aggregation purposes.
+      const sequence = SCORED_CONCEPT_SEQUENCE[this.currentModuleId];
       const idx = sequence.indexOf(conceptId);
       if (idx < sequence.length - 1) {
         this.currentConceptId = sequence[idx + 1];

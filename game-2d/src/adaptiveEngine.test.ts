@@ -726,7 +726,31 @@ describe("Gravitation & Orbits concept mapping and architecture isolation (Layer
   it("MODULE_GRAVITATION has its 3 concepts registered in curriculum order: Gravitational Force, Orbital Velocity, Escape Velocity", () => {
     const engine = new AdaptiveEngine(MODULE_GRAVITATION);
     expect(engine.currentModuleId).toBe(MODULE_GRAVITATION);
-    expect(engine.currentConceptId).toBe(CONCEPT_GRAVITATIONAL_FORCE);
+    // Gravitational Force is still the FIRST concept in the curriculum
+    // sequence (registered, real, just not yet scoreable - see
+    // EXPLORATION_ONLY_CONCEPTS) - but it is not eligible for scored
+    // generation, so a fresh engine opens on the first concept that is:
+    // Orbital Velocity. Layer 8 fix - a fresh session used to start on the
+    // unsupported concept with no way to reach a scored one.
+    expect(engine.currentConceptId).toBe(CONCEPT_ORBITAL_VELOCITY);
+  });
+
+  it("a fresh Gravitation session never generates gravitational_force as a scored adaptive challenge", () => {
+    const engine = new AdaptiveEngine(MODULE_GRAVITATION);
+    const challenge = engine.generateNextChallenge();
+    expect(challenge.conceptId).not.toBe(CONCEPT_GRAVITATIONAL_FORCE);
+    expect(challenge.conceptId).toBe(CONCEPT_ORBITAL_VELOCITY);
+  });
+
+  it("gravitational_force being excluded from scored selection never touches its own (or anything else's) mastery", () => {
+    const engine = new AdaptiveEngine(MODULE_GRAVITATION);
+    expect(engine.conceptMastery[CONCEPT_GRAVITATIONAL_FORCE]).toBeCloseTo(0.3, 6);
+    for (let i = 0; i < 20; i++) engine.recordAttempt(0, 1.0, true, 1);
+    engine.evaluateContentTransition();
+    // Only the concept actually being practiced (orbital_velocity) moves -
+    // gravitational_force's mastery is never touched merely because it was
+    // skipped over.
+    expect(engine.conceptMastery[CONCEPT_GRAVITATIONAL_FORCE]).toBeCloseTo(0.3, 6);
   });
 
   it("every Gravitation concept starts at the same baseline mastery as every other module's concepts", () => {
@@ -744,14 +768,20 @@ describe("Gravitation & Orbits concept mapping and architecture isolation (Layer
     expect(engine.getModuleMastery(MODULE_GRAVITATION)).toBeCloseTo((0.2 + 0.5 + 0.8) / 3, 6);
   });
 
-  it("recordAttempt/evaluateContentTransition progress Gravitation's own 3 concepts in sequence, using the exact same rules as every other module", () => {
+  it("recordAttempt/evaluateContentTransition progress Gravitation's own scored concepts in sequence, using the exact same rules as every other module", () => {
     const engine = new AdaptiveEngine(MODULE_GRAVITATION);
-    expect(engine.currentConceptId).toBe(CONCEPT_GRAVITATIONAL_FORCE);
-    for (let i = 0; i < 20; i++) engine.recordAttempt(0, 1.0, true, 1);
-    expect(engine.conceptMastery[CONCEPT_GRAVITATIONAL_FORCE]).toBeGreaterThanOrEqual(0.75);
-    const msg = engine.evaluateContentTransition();
+    // Starts on Orbital Velocity (the first SCORED concept), not
+    // Gravitational Force - see the Layer 8 fix above.
     expect(engine.currentConceptId).toBe(CONCEPT_ORBITAL_VELOCITY);
+    for (let i = 0; i < 20; i++) engine.recordAttempt(0, 1.0, true, 1);
+    expect(engine.conceptMastery[CONCEPT_ORBITAL_VELOCITY]).toBeGreaterThanOrEqual(0.75);
+    const msg = engine.evaluateContentTransition();
+    expect(engine.currentConceptId).toBe(CONCEPT_ESCAPE_VELOCITY);
     expect(msg).toContain("Introducing");
+
+    // And escape_velocity itself can then be generated as a real challenge.
+    const challenge = engine.generateNextChallenge();
+    expect(challenge.conceptId).toBe(CONCEPT_ESCAPE_VELOCITY);
   });
 
   // The whole point of Layer 1: this module exists and is fully testable,
@@ -795,6 +825,24 @@ describe("Gravitation & Orbits concept mapping and architecture isolation (Layer
       const engine = new AdaptiveEngine();
       expect(engine.currentModuleId).toBe(MODULE_PROJECTILE);
       expect(engine.currentConceptId).toBe(CONCEPT_SPEED_RANGE);
+    });
+
+    // Layer 8 fix: the engine now starts a module on its first SCORED
+    // concept rather than blindly on CONCEPT_SEQUENCE[0]. For every one of
+    // the 5 existing modules those are the exact same concept (none of
+    // their concepts are exploration-only), so every existing module's
+    // starting concept - and therefore its full generated challenge
+    // sequence - is provably unchanged.
+    it.each([
+      [MODULE_PROJECTILE, CONCEPT_SPEED_RANGE],
+      [MODULE_NEWTON, CONCEPT_FORCE_ACCELERATION],
+      [MODULE_WORK_ENERGY, CONCEPT_WORK],
+      [MODULE_MOMENTUM, CONCEPT_MOMENTUM],
+      [MODULE_CIRCULAR, CONCEPT_CENTRIPETAL_FORCE],
+    ])("%s still starts on its original first concept (%s) - unaffected by the exploration-only-concept mechanism", (moduleId, firstConcept) => {
+      const engine = new AdaptiveEngine(moduleId);
+      expect(engine.currentConceptId).toBe(firstConcept);
+      expect(engine.generateNextChallenge().conceptId).toBe(firstConcept);
     });
 
     it("an unrecognized startModuleId still falls back to the default journey, same as before", () => {

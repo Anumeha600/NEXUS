@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { GRAVITY_SIM_G, orbitalVelocity, escapeVelocity, gravitationalAccelerationVector } from "./physics";
 import { createGravitationSimState, stepGravitationSim, type GravitationSimState } from "./gravitationSim";
-import { computeGravitationViewTransform, physicsToScreen, physicsVectorToScreen } from "./gravitationRender";
+import { computeGravitationViewTransform, physicsToScreen, physicsVectorToScreen, perpendicularLabelPoint } from "./gravitationRender";
 
 const STAR_MASS = 100;
 const RADIUS = 5;
@@ -137,5 +137,50 @@ describe("gravitationRender - physics-to-screen transform", () => {
       expect(Number.isFinite(gravityScreen.x)).toBe(true);
       expect(Number.isFinite(gravityScreen.y)).toBe(true);
     }
+  });
+});
+
+describe("perpendicularLabelPoint - Layer 8 fix for the distance label overlapping the (collinear) gravity vector label", () => {
+  it("is offset away from the midpoint of the line, not sitting on it", () => {
+    const star = { x: 200, y: 100 };
+    const planet = { x: 300, y: 100 };
+    const midX = (star.x + planet.x) / 2;
+    const midY = (star.y + planet.y) / 2;
+    const point = perpendicularLabelPoint(star.x, star.y, planet.x, planet.y, 16);
+    expect(Math.hypot(point.x - midX, point.y - midY)).toBeCloseTo(16, 6);
+  });
+
+  it("is offset exactly perpendicular to the line (dot product with the line's direction is zero)", () => {
+    const star = { x: 50, y: 40 };
+    const planet = { x: 260, y: 190 };
+    const point = perpendicularLabelPoint(star.x, star.y, planet.x, planet.y, 16);
+    const midX = (star.x + planet.x) / 2;
+    const midY = (star.y + planet.y) / 2;
+    const lineDx = planet.x - star.x;
+    const lineDy = planet.y - star.y;
+    const offsetDx = point.x - midX;
+    const offsetDy = point.y - midY;
+    const dot = lineDx * offsetDx + lineDy * offsetDy;
+    expect(dot).toBeCloseTo(0, 6);
+  });
+
+  it("respects the requested offset distance regardless of the line's own length", () => {
+    for (const [ax, ay, bx, by] of [
+      [0, 0, 10, 0],
+      [0, 0, 500, 0],
+      [10, 10, 10, 400],
+      [5, 5, 305, 405],
+    ]) {
+      const point = perpendicularLabelPoint(ax, ay, bx, by, 16);
+      const midX = (ax + bx) / 2;
+      const midY = (ay + by) / 2;
+      expect(Math.hypot(point.x - midX, point.y - midY)).toBeCloseTo(16, 6);
+    }
+  });
+
+  it("degenerates to the midpoint (never NaN/Infinity) when the two points coincide", () => {
+    const point = perpendicularLabelPoint(150, 80, 150, 80, 16);
+    expect(point.x).toBe(150);
+    expect(point.y).toBe(80);
   });
 });
