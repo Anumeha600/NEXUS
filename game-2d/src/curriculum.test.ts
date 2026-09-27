@@ -16,6 +16,7 @@ import { describe, it, expect } from "vitest";
 import {
   CURRICULUM,
   AVAILABLE_MODULES,
+  OPTIONAL_LABS,
   moduleById,
   engineModuleIdFor,
   moduleByEngineId,
@@ -296,9 +297,32 @@ describe("Learn page concept lesson content", () => {
     }
   });
 
-  it("playRouteFor refuses to present a curriculum-only or unrecognized module as playable", () => {
-    for (const id of ["gravitation", "waves", "not-a-real-module"]) {
+  it("playRouteFor also maps Gravitation - an optional lab with a real game, kept outside the normal available/adaptive-sequence set", () => {
+    expect(playRouteFor("gravitation")).toBe("/play?module=gravitation");
+  });
+
+  it("playRouteFor refuses to present a curriculum-only module (no game at all) or an unrecognized module as playable", () => {
+    for (const id of ["waves", "not-a-real-module"]) {
       expect(playRouteFor(id)).toBeUndefined();
     }
+  });
+});
+
+describe("optional labs (a real game outside the normal adaptive sequence)", () => {
+  it("Gravitation is marked as an optional lab, not as part of the normal available/adaptive-sequence set", () => {
+    const mod = moduleById("gravitation");
+    expect(mod?.optionalLab).toBe(true);
+    expect(mod?.available).toBe(false);
+  });
+
+  it("OPTIONAL_LABS contains exactly Gravitation, and never overlaps with AVAILABLE_MODULES", () => {
+    expect(OPTIONAL_LABS.map((m) => m.id)).toEqual(["gravitation"]);
+    for (const mod of OPTIONAL_LABS) {
+      expect(AVAILABLE_MODULES.some((m) => m.id === mod.id)).toBe(false);
+    }
+  });
+
+  it("an optional lab is excluded from TOTAL_MODULES/TOTAL_CONCEPTS - adaptive-progression stats never change because of it", () => {
+    expect(AVAILABLE_MODULES.some((m) => m.optionalLab)).toBe(false);
   });
 });

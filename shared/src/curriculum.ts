@@ -82,6 +82,16 @@ export interface ModuleInfo {
   // never render it as playable, and never fabricate placeholder gameplay
   // for it.
   available: boolean;
+  // A real, playable-today lab that is deliberately NOT part of the normal
+  // adaptive sequence/progression counts (AVAILABLE_MODULES and its derived
+  // TOTAL_MODULES/TOTAL_CONCEPTS) - e.g. Gravitation & Orbits, whose game
+  // runs its own standalone AdaptiveEngine instance outside MODULE_SEQUENCE
+  // (see game-2d/src/adaptiveEngine.ts). Kept as a separate flag from
+  // `available` rather than repurposing it, so Play Hub can render it as its
+  // own distinct "Optional Lab" card (via OPTIONAL_LABS below) without ever
+  // inflating the site's adaptive-progression statistics. Never true at the
+  // same time as `available`.
+  optionalLab?: boolean;
 }
 
 export const CURRICULUM: ModuleInfo[] = [
@@ -401,6 +411,11 @@ export const CURRICULUM: ModuleInfo[] = [
     ],
     theme: { accent: "from-blue to-purple", ring: "ring-blue/20", chip: "bg-blue/10 text-blue-dark" },
     available: false,
+    // A real, working game exists (see game-2d/src/GravitationChallengeScene)
+    // but its AdaptiveEngine runs standalone, outside MODULE_SEQUENCE - it
+    // is intentionally not part of the normal adaptive journey, so it's
+    // exposed as an optional lab rather than flipping `available`.
+    optionalLab: true,
   },
   {
     id: "waves",
@@ -427,6 +442,13 @@ export const AVAILABLE_MODULES: ModuleInfo[] = CURRICULUM.filter((m) => m.availa
 
 export const TOTAL_CONCEPTS = AVAILABLE_MODULES.reduce((sum, m) => sum + m.concepts.length, 0);
 export const TOTAL_MODULES = AVAILABLE_MODULES.length;
+
+// Real, playable labs that sit outside the normal adaptive sequence (see
+// ModuleInfo.optionalLab) - never included in AVAILABLE_MODULES or its
+// derived TOTAL_MODULES/TOTAL_CONCEPTS, so the dashboard's adaptive-progress
+// statistics never change just because an optional lab exists. Play Hub
+// renders these as their own distinct section.
+export const OPTIONAL_LABS: ModuleInfo[] = CURRICULUM.filter((m) => m.optionalLab);
 
 export function moduleById(id: string): ModuleInfo | undefined {
   return CURRICULUM.find((m) => m.id === id);
@@ -463,8 +485,10 @@ export function hasLesson(concept: ConceptInfo): boolean {
 // its module has no working game to route to yet. Deliberately module-only
 // (no ?concept= param) - GameCanvas's AdaptiveEngine always starts a module
 // at its own first concept, so a concept-specific route would be a promise
-// the current engine architecture can't keep.
+// the current engine architecture can't keep. An optional lab (available is
+// false, but it has a real standalone game - see ModuleInfo.optionalLab)
+// gets a route too, since /play?module=<id> genuinely opens something.
 export function playRouteFor(moduleId: string): string | undefined {
   const mod = moduleById(moduleId);
-  return mod?.available ? `/play?module=${mod.id}` : undefined;
+  return mod && (mod.available || mod.optionalLab) ? `/play?module=${mod.id}` : undefined;
 }

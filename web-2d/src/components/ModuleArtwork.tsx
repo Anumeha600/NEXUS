@@ -9,7 +9,8 @@ export type ArtworkModuleId =
   | "newton"
   | "work-energy"
   | "momentum"
-  | "circular-motion";
+  | "circular-motion"
+  | "gravitation";
 
 interface ModuleArtworkProps {
   moduleId: string;
@@ -32,6 +33,7 @@ const ARTWORK = {
   "work-energy": WorkEnergyArt,
   momentum: MomentumArt,
   "circular-motion": CircularMotionArt,
+  gravitation: GravitationArt,
 } satisfies Record<ArtworkModuleId, (props: ArtProps) => ReturnType<typeof ProjectileArt>>;
 
 // Physics Park landscape: launcher, curved trajectory, target, distant hills.
@@ -308,6 +310,76 @@ function CircularMotionArt({ className }: ArtProps) {
       {/* tangent velocity arrow on top cabin */}
       <line x1={cx} y1={cy - r} x2={cx + 30} y2={cy - r} stroke="#F4B942" strokeWidth="3" strokeLinecap="round" />
       <path d={`M ${cx + 30} ${cy - r} L ${cx + 22} ${cy - r - 6} L ${cx + 22} ${cy - r + 6} Z`} fill="#F4B942" />
+    </svg>
+  );
+}
+
+// Gravitation & Orbits card art: a glowing star, a bound circular orbit, a
+// wider elliptical orbit, and a planet breaking away on an escape
+// trajectory - the same GRAVITY -> ORBIT -> ESCAPE story the game itself
+// demonstrates, but in the website's own light lavender/blue illustration
+// language (matching CircularMotionArt/MomentumArt above) rather than the
+// real game canvas's dark space environment - this is promotional art, not
+// a screenshot of gravitationRender.ts.
+function GravitationArt({ className }: ArtProps) {
+  const cx = 178;
+  const cy = 104;
+
+  return (
+    <svg viewBox="0 0 400 220" className={className} aria-hidden="true">
+      <defs>
+        <linearGradient id="art-gravitation-bg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#EEF5FF" />
+          <stop offset="100%" stopColor="#F0EDFF" />
+        </linearGradient>
+        <radialGradient id="art-gravitation-star" cx="35%" cy="35%" r="65%">
+          <stop offset="0%" stopColor="#FFFDF5" />
+          <stop offset="45%" stopColor="#F4B942" />
+          <stop offset="100%" stopColor="#C98F14" />
+        </radialGradient>
+        <linearGradient id="art-gravitation-planet" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#9CD3FF" />
+          <stop offset="100%" stopColor="#3478F6" />
+        </linearGradient>
+      </defs>
+
+      <rect width="400" height="220" fill="url(#art-gravitation-bg)" />
+
+      {/* subtle background stars */}
+      <g fill="#B9AEEB" opacity="0.55">
+        <circle cx="36" cy="34" r="2" />
+        <circle cx="90" cy="20" r="1.5" />
+        <circle cx="330" cy="46" r="2" />
+        <circle cx="370" cy="100" r="1.5" />
+        <circle cx="60" cy="170" r="1.5" />
+        <circle cx="350" cy="180" r="2" />
+        <circle cx="250" cy="30" r="1.5" />
+      </g>
+
+      {/* wider elliptical (bound) orbit */}
+      <ellipse cx={cx} cy={cy} rx="140" ry="56" fill="none" stroke="#6C4DFF" strokeWidth="2" strokeDasharray="3 7" opacity="0.45" />
+
+      {/* circular (stable) orbit */}
+      <ellipse cx={cx} cy={cy} rx="86" ry="34" fill="none" stroke="#3478F6" strokeWidth="3" opacity="0.7" />
+
+      {/* the star, at the shared focus of both orbits */}
+      <circle cx={cx} cy={cy} r="30" fill="#F4B942" opacity="0.18" />
+      <circle cx={cx} cy={cy} r="17" fill="url(#art-gravitation-star)" />
+
+      {/* planet on the stable circular orbit */}
+      <circle cx={cx + 84} cy={cy + 10} r="9" fill="url(#art-gravitation-planet)" />
+
+      {/* escape trajectory - breaking away from orbit toward open space */}
+      <path
+        d={`M ${cx - 60} ${cy - 32} Q 300 20 372 18`}
+        fill="none"
+        stroke="#20C7D9"
+        strokeWidth="3"
+        strokeDasharray="1 9"
+        strokeLinecap="round"
+        opacity="0.85"
+      />
+      <path d="M 372 18 L 359 12 L 362 26 Z" fill="#20C7D9" opacity="0.85" />
     </svg>
   );
 }
