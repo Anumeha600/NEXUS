@@ -6,6 +6,7 @@ import {
   MODULE_WORK_ENERGY,
   MODULE_MOMENTUM,
   MODULE_CIRCULAR,
+  MODULE_GRAVITATION,
   CONCEPT_SPEED_RANGE,
   CONCEPT_GRAVITY_RANGE,
   CONCEPT_FORCE_ACCELERATION,
@@ -20,8 +21,25 @@ import {
   CONCEPT_CENTRIPETAL_FORCE,
   CONCEPT_CENTRIPETAL_ACCELERATION,
   CONCEPT_CIRCULAR_SPEED,
+  CONCEPT_GRAVITATIONAL_FORCE,
+  CONCEPT_ORBITAL_VELOCITY,
+  CONCEPT_ESCAPE_VELOCITY,
 } from "./adaptiveEngine";
-import { momentum, impulse, elasticCollisionFinalVelocities, inelasticCollisionFinalVelocity, centripetalForceFromSpeed, centripetalAccelerationFromSpeed, circularSpeedFromOmega, angularVelocityFromSpeed, circularPeriod } from "./physics";
+import {
+  momentum,
+  impulse,
+  elasticCollisionFinalVelocities,
+  inelasticCollisionFinalVelocity,
+  centripetalForceFromSpeed,
+  centripetalAccelerationFromSpeed,
+  circularSpeedFromOmega,
+  angularVelocityFromSpeed,
+  circularPeriod,
+  GRAVITY_SIM_G,
+  gravitationalForce,
+  orbitalVelocity,
+  escapeVelocity,
+} from "./physics";
 
 describe("AdaptiveEngine mastery updates", () => {
   let engine: AdaptiveEngine;
@@ -567,6 +585,222 @@ describe("Circular Motion challenge generation", () => {
       expect(circularChallenge(CONCEPT_CIRCULAR_SPEED, 0.05).revolutions).toBe(1);
       expect(circularChallenge(CONCEPT_CIRCULAR_SPEED, 0.5).revolutions).toBe(2);
       expect(circularChallenge(CONCEPT_CIRCULAR_SPEED, 0.95).revolutions).toBe(3);
+    });
+  });
+});
+
+// --------------------------------------------------------------------------
+// Gravitation & Orbits - Layer 1 (curriculum/architecture/physics
+// foundation only, see MODULE_GRAVITATION's doc comment in
+// adaptiveEngine.ts). Reached only by directly instantiating
+// `new AdaptiveEngine(MODULE_GRAVITATION)` or setting
+// currentModuleId/currentConceptId by hand, exactly as these tests do -
+// there is deliberately no UI route to it yet.
+// --------------------------------------------------------------------------
+describe("Gravitation & Orbits challenge generation", () => {
+  function gravitationChallenge(conceptId: string, mastery: number) {
+    const engine = new AdaptiveEngine();
+    engine.currentModuleId = MODULE_GRAVITATION;
+    engine.currentConceptId = conceptId;
+    engine.conceptMastery[conceptId] = mastery;
+    return engine.generateNextChallenge();
+  }
+
+  describe("Gravitational Force concept (F = GMm/r^2)", () => {
+    it("Beginner solves for the force directly, given a positive star mass, planet mass, and distance", () => {
+      const c = gravitationChallenge(CONCEPT_GRAVITATIONAL_FORCE, 0.1);
+      expect(c.gravitationForceSolveFor).toBe("force");
+      expect(c.starMass).toBeGreaterThan(0);
+      expect(c.planetMass).toBeGreaterThan(0);
+      expect(c.distanceFromStar).toBeGreaterThan(0);
+      expect(c.targetGravitationalForce).toBeCloseTo(gravitationalForce(GRAVITY_SIM_G, c.starMass!, c.planetMass!, c.distanceFromStar!), 1);
+    });
+
+    it("Intermediate solves for distance, with starMass/planetMass given but distance left as the unknown", () => {
+      const c = gravitationChallenge(CONCEPT_GRAVITATIONAL_FORCE, 0.5);
+      expect(c.gravitationForceSolveFor).toBe("distance");
+      expect(c.starMass).toBeGreaterThan(0);
+      expect(c.planetMass).toBeGreaterThan(0);
+      expect(c.distanceFromStar).toBeUndefined();
+      expect(c.targetGravitationalForce).toBeDefined();
+    });
+
+    it("Advanced solves for planet mass, with starMass/distance given but planetMass left as the unknown", () => {
+      const c = gravitationChallenge(CONCEPT_GRAVITATIONAL_FORCE, 0.9);
+      expect(c.gravitationForceSolveFor).toBe("planetMass");
+      expect(c.starMass).toBeGreaterThan(0);
+      expect(c.distanceFromStar).toBeGreaterThan(0);
+      expect(c.planetMass).toBeUndefined();
+      expect(c.targetGravitationalForce).toBeDefined();
+    });
+
+    it("quartering distance (halving twice) increases force 16x - an inverse-square relationship", () => {
+      const starMass = 100;
+      const planetMass = 2;
+      const r = 8;
+      const original = gravitationalForce(GRAVITY_SIM_G, starMass, planetMass, r);
+      const quartered = gravitationalForce(GRAVITY_SIM_G, starMass, planetMass, r / 4);
+      expect(quartered).toBeCloseTo(original * 16, 6);
+    });
+  });
+
+  describe("Orbital Velocity concept (v_orbit = sqrt(GM/r))", () => {
+    it("Beginner solves for orbital velocity directly, given a positive star mass and distance", () => {
+      const c = gravitationChallenge(CONCEPT_ORBITAL_VELOCITY, 0.1);
+      expect(c.orbitalVelocitySolveFor).toBe("velocity");
+      expect(c.starMass).toBeGreaterThan(0);
+      expect(c.distanceFromStar).toBeGreaterThan(0);
+      expect(c.targetOrbitalVelocity).toBeCloseTo(orbitalVelocity(GRAVITY_SIM_G, c.starMass!, c.distanceFromStar!), 1);
+    });
+
+    it("Intermediate solves for orbital radius; Advanced solves for star mass", () => {
+      const intermediate = gravitationChallenge(CONCEPT_ORBITAL_VELOCITY, 0.5);
+      expect(intermediate.orbitalVelocitySolveFor).toBe("distance");
+      expect(intermediate.starMass).toBeGreaterThan(0);
+      expect(intermediate.distanceFromStar).toBeUndefined();
+
+      const advanced = gravitationChallenge(CONCEPT_ORBITAL_VELOCITY, 0.9);
+      expect(advanced.orbitalVelocitySolveFor).toBe("starMass");
+      expect(advanced.distanceFromStar).toBeGreaterThan(0);
+      expect(advanced.starMass).toBeUndefined();
+    });
+
+    it("never involves a planetMass field - orbital velocity doesn't depend on the orbiting body's own mass", () => {
+      const c = gravitationChallenge(CONCEPT_ORBITAL_VELOCITY, 0.1);
+      expect(c.planetMass).toBeUndefined();
+    });
+
+    it("quadrupling orbital radius halves orbital velocity", () => {
+      const starMass = 100;
+      const r = 4;
+      const original = orbitalVelocity(GRAVITY_SIM_G, starMass, r);
+      const quadrupled = orbitalVelocity(GRAVITY_SIM_G, starMass, r * 4);
+      expect(quadrupled).toBeCloseTo(original / 2, 6);
+    });
+  });
+
+  describe("Escape Velocity concept (v_escape = sqrt(2GM/r))", () => {
+    it("Beginner solves for escape velocity directly, given a positive star mass and distance", () => {
+      const c = gravitationChallenge(CONCEPT_ESCAPE_VELOCITY, 0.1);
+      expect(c.escapeVelocitySolveFor).toBe("velocity");
+      expect(c.starMass).toBeGreaterThan(0);
+      expect(c.distanceFromStar).toBeGreaterThan(0);
+      expect(c.targetEscapeVelocity).toBeCloseTo(escapeVelocity(GRAVITY_SIM_G, c.starMass!, c.distanceFromStar!), 1);
+    });
+
+    it("Intermediate solves for distance; Advanced solves for star mass", () => {
+      const intermediate = gravitationChallenge(CONCEPT_ESCAPE_VELOCITY, 0.5);
+      expect(intermediate.escapeVelocitySolveFor).toBe("distance");
+      expect(intermediate.distanceFromStar).toBeUndefined();
+
+      const advanced = gravitationChallenge(CONCEPT_ESCAPE_VELOCITY, 0.9);
+      expect(advanced.escapeVelocitySolveFor).toBe("starMass");
+      expect(advanced.starMass).toBeUndefined();
+    });
+
+    it("every generated escape-velocity challenge's target is exactly sqrt(2) times what orbital velocity would be for the same star mass and distance", () => {
+      const c = gravitationChallenge(CONCEPT_ESCAPE_VELOCITY, 0.1);
+      const impliedOrbital = orbitalVelocity(GRAVITY_SIM_G, c.starMass!, c.distanceFromStar!);
+      expect(c.targetEscapeVelocity).toBeCloseTo(impliedOrbital * Math.SQRT2, 1);
+    });
+  });
+
+  it.each([
+    { conceptId: CONCEPT_GRAVITATIONAL_FORCE, name: "Gravitational Force" },
+    { conceptId: CONCEPT_ORBITAL_VELOCITY, name: "Orbital Velocity" },
+    { conceptId: CONCEPT_ESCAPE_VELOCITY, name: "Escape Velocity" },
+  ])("generates a well-formed challenge for $name", ({ conceptId }) => {
+    const engine = new AdaptiveEngine(MODULE_GRAVITATION);
+    engine.currentConceptId = conceptId;
+    const challenge = engine.generateNextChallenge();
+    expect(challenge.moduleId).toBe(MODULE_GRAVITATION);
+    expect(challenge.conceptId).toBe(conceptId);
+    expect(challenge.tolerance).toBeGreaterThan(0);
+    expect(["Beginner", "Intermediate", "Advanced"]).toContain(challenge.difficulty);
+    expect(typeof challenge.unit).toBe("string");
+    expect(challenge.unit.length).toBeGreaterThan(0);
+  });
+});
+
+describe("Gravitation & Orbits concept mapping and architecture isolation (Layer 1)", () => {
+  it("MODULE_GRAVITATION has its 3 concepts registered in curriculum order: Gravitational Force, Orbital Velocity, Escape Velocity", () => {
+    const engine = new AdaptiveEngine(MODULE_GRAVITATION);
+    expect(engine.currentModuleId).toBe(MODULE_GRAVITATION);
+    expect(engine.currentConceptId).toBe(CONCEPT_GRAVITATIONAL_FORCE);
+  });
+
+  it("every Gravitation concept starts at the same baseline mastery as every other module's concepts", () => {
+    const engine = new AdaptiveEngine();
+    for (const c of [CONCEPT_GRAVITATIONAL_FORCE, CONCEPT_ORBITAL_VELOCITY, CONCEPT_ESCAPE_VELOCITY]) {
+      expect(engine.conceptMastery[c]).toBeCloseTo(0.3, 6);
+    }
+  });
+
+  it("getModuleMastery averages exactly Gravitation's own 3 concepts, independent of the other 5 modules", () => {
+    const engine = new AdaptiveEngine(MODULE_GRAVITATION);
+    engine.conceptMastery[CONCEPT_GRAVITATIONAL_FORCE] = 0.2;
+    engine.conceptMastery[CONCEPT_ORBITAL_VELOCITY] = 0.5;
+    engine.conceptMastery[CONCEPT_ESCAPE_VELOCITY] = 0.8;
+    expect(engine.getModuleMastery(MODULE_GRAVITATION)).toBeCloseTo((0.2 + 0.5 + 0.8) / 3, 6);
+  });
+
+  it("recordAttempt/evaluateContentTransition progress Gravitation's own 3 concepts in sequence, using the exact same rules as every other module", () => {
+    const engine = new AdaptiveEngine(MODULE_GRAVITATION);
+    expect(engine.currentConceptId).toBe(CONCEPT_GRAVITATIONAL_FORCE);
+    for (let i = 0; i < 20; i++) engine.recordAttempt(0, 1.0, true, 1);
+    expect(engine.conceptMastery[CONCEPT_GRAVITATIONAL_FORCE]).toBeGreaterThanOrEqual(0.75);
+    const msg = engine.evaluateContentTransition();
+    expect(engine.currentConceptId).toBe(CONCEPT_ORBITAL_VELOCITY);
+    expect(msg).toContain("Introducing");
+  });
+
+  // The whole point of Layer 1: this module exists and is fully testable,
+  // but it must not change anything about the 5 modules that already ship.
+  describe("adding Gravitation does not change any existing module's behavior", () => {
+    it("MODULE_GRAVITATION is not part of the 5-module auto-progression sequence - mastering Circular Motion still ends progression exactly as it did before this module existed", () => {
+      const engine = new AdaptiveEngine(MODULE_CIRCULAR);
+      // Master every concept in every one of the 5 existing modules.
+      const allExistingConcepts = [
+        CONCEPT_SPEED_RANGE,
+        CONCEPT_GRAVITY_RANGE,
+        CONCEPT_FORCE_ACCELERATION,
+        CONCEPT_NET_FORCE,
+        CONCEPT_FRICTION,
+        CONCEPT_WORK,
+        CONCEPT_KINETIC_ENERGY,
+        CONCEPT_WORK_ENERGY_THEOREM,
+        CONCEPT_MOMENTUM,
+        CONCEPT_IMPULSE,
+        CONCEPT_CONSERVATION_MOMENTUM,
+        CONCEPT_CENTRIPETAL_FORCE,
+        CONCEPT_CENTRIPETAL_ACCELERATION,
+        CONCEPT_CIRCULAR_SPEED,
+      ];
+      for (const c of allExistingConcepts) engine.conceptMastery[c] = 0.95;
+      engine.currentConceptId = CONCEPT_CENTRIPETAL_FORCE;
+      engine.evaluateContentTransition(); // -> centripetal_acceleration
+      engine.currentConceptId = CONCEPT_CENTRIPETAL_ACCELERATION;
+      engine.evaluateContentTransition(); // -> circular_speed
+      engine.currentConceptId = CONCEPT_CIRCULAR_SPEED;
+      const msg = engine.evaluateContentTransition();
+      // Same outcome as before Gravitation was registered: stays on Circular
+      // Motion's last concept, continuing advanced practice - never
+      // transitions into gravitation_orbits.
+      expect(engine.currentModuleId).toBe(MODULE_CIRCULAR);
+      expect(engine.currentConceptId).toBe(CONCEPT_CIRCULAR_SPEED);
+      expect(msg).toContain("advanced practice");
+    });
+
+    it("a fresh engine still defaults to Projectile Motion / Speed & Range", () => {
+      const engine = new AdaptiveEngine();
+      expect(engine.currentModuleId).toBe(MODULE_PROJECTILE);
+      expect(engine.currentConceptId).toBe(CONCEPT_SPEED_RANGE);
+    });
+
+    it("an unrecognized startModuleId still falls back to the default journey, same as before", () => {
+      const engine = new AdaptiveEngine("not-a-real-module");
+      expect(engine.currentModuleId).toBe(MODULE_PROJECTILE);
+      expect(engine.currentConceptId).toBe(CONCEPT_SPEED_RANGE);
     });
   });
 });

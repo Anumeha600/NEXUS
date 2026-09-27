@@ -25,6 +25,10 @@ import {
   circularSpeedFromOmega,
   angularVelocityFromSpeed,
   circularPeriod,
+  GRAVITY_SIM_G,
+  gravitationalForce,
+  orbitalVelocity,
+  escapeVelocity,
 } from "./physics";
 
 export const MODULE_PROJECTILE = "projectile_motion";
@@ -32,6 +36,21 @@ export const MODULE_NEWTON = "newtons_laws";
 export const MODULE_WORK_ENERGY = "work_energy";
 export const MODULE_MOMENTUM = "momentum_collisions";
 export const MODULE_CIRCULAR = "circular_motion";
+// Module 6 (Layer 1 - foundation only). This constant, its 3 concepts below,
+// and their CONCEPT_SEQUENCE entry exist so the AdaptiveEngine/challenge-
+// generation architecture can be built and tested end-to-end right now -
+// but this module is deliberately NOT added to MODULE_SEQUENCE (so mastering
+// Circular Motion still ends the existing 5-module auto-progression exactly
+// as it does today) and @nexus/shared's curriculum entry for "gravitation"
+// deliberately still has no `engineModuleId` and `available: false` (see
+// that file's STABLE MODULE IDS note and curriculum.test.ts's "a
+// curriculum-only module has no engineModuleId" invariant) - so nothing
+// about the 5 existing modules' behavior changes, and this module has no
+// route into the UI yet. The bridge from the stable curriculum id
+// "gravitation" to this constant is only wired up (engineModuleId set,
+// MODULE_SEQUENCE updated, lesson content added) in a later phase once the
+// game/render layer built on top of this foundation actually exists.
+export const MODULE_GRAVITATION = "gravitation_orbits";
 
 export const CONCEPT_SPEED_RANGE = "speed_range";
 export const CONCEPT_GRAVITY_RANGE = "gravity_range";
@@ -54,6 +73,14 @@ export const CONCEPT_CONSERVATION_MOMENTUM = "conservation_of_momentum";
 export const CONCEPT_CENTRIPETAL_FORCE = "centripetal_force";
 export const CONCEPT_CENTRIPETAL_ACCELERATION = "centripetal_acceleration";
 export const CONCEPT_CIRCULAR_SPEED = "circular_speed";
+// These 3 ids are the ones @nexus/shared's curriculum.ts already reserved
+// for Module 6 (id: "gravitation", available: false) - see that file's
+// STABLE MODULE IDS note. Do not rename them; keeping the two id
+// vocabularies identical now is what makes wiring up engineModuleId later a
+// pure connection, not a rename.
+export const CONCEPT_GRAVITATIONAL_FORCE = "gravitational_force";
+export const CONCEPT_ORBITAL_VELOCITY = "orbital_velocity";
+export const CONCEPT_ESCAPE_VELOCITY = "escape_velocity";
 
 const MODULE_SEQUENCE = [MODULE_PROJECTILE, MODULE_NEWTON, MODULE_WORK_ENERGY, MODULE_MOMENTUM, MODULE_CIRCULAR];
 
@@ -63,6 +90,12 @@ const CONCEPT_SEQUENCE: Record<string, string[]> = {
   [MODULE_WORK_ENERGY]: [CONCEPT_WORK, CONCEPT_KINETIC_ENERGY, CONCEPT_WORK_ENERGY_THEOREM],
   [MODULE_MOMENTUM]: [CONCEPT_MOMENTUM, CONCEPT_IMPULSE, CONCEPT_CONSERVATION_MOMENTUM],
   [MODULE_CIRCULAR]: [CONCEPT_CENTRIPETAL_FORCE, CONCEPT_CENTRIPETAL_ACCELERATION, CONCEPT_CIRCULAR_SPEED],
+  // Registered so generateNextChallenge()/getModuleMastery() work for a
+  // directly-instantiated `new AdaptiveEngine(MODULE_GRAVITATION)` (exactly
+  // how this layer's own tests exercise it) - MODULE_GRAVITATION is not in
+  // MODULE_SEQUENCE above, so this entry is never reached through normal
+  // module-to-module progression or any UI route today.
+  [MODULE_GRAVITATION]: [CONCEPT_GRAVITATIONAL_FORCE, CONCEPT_ORBITAL_VELOCITY, CONCEPT_ESCAPE_VELOCITY],
 };
 
 const MODULE_OF_CONCEPT: Record<string, string> = {};
@@ -171,6 +204,39 @@ export interface Challenge {
   // reaches its endpoint (1 Beginner / 2 Intermediate / 3 Advanced). See
   // experimentRunner.ts's circularRunDurationMs/circularAngleAt.
   revolutions?: number;
+
+  // Gravitation & Orbits (Layer 1 - foundation only, see MODULE_GRAVITATION
+  // above). starMass/distanceFromStar are shared across all 3 concepts
+  // below (the same "r" and "M" a real two-body system has), exactly like
+  // Circular Motion's radius/speed fields are shared across its 3 concepts -
+  // never both a challenge's own field AND a duplicate per-concept copy.
+
+  // Gravitational Force (CONCEPT_GRAVITATIONAL_FORCE) - F = GMm/r^2.
+  // Beginner solves for the force directly (starMass/planetMass/
+  // distanceFromStar all given); Intermediate gives a target force and
+  // solves for distance instead; Advanced solves for the planet's own mass -
+  // exactly the "find force / find distance / find planet mass" progression.
+  gravitationForceSolveFor?: "force" | "distance" | "planetMass";
+  starMass?: number;
+  planetMass?: number;
+  distanceFromStar?: number;
+  targetGravitationalForce?: number;
+
+  // Orbital Velocity (CONCEPT_ORBITAL_VELOCITY) - v_orbit = sqrt(GM/r).
+  // Beginner solves for the orbital speed directly; Intermediate solves for
+  // the orbital radius; Advanced solves for the star's mass - "find orbital
+  // velocity / find orbital radius / find star mass".
+  orbitalVelocitySolveFor?: "velocity" | "distance" | "starMass";
+  targetOrbitalVelocity?: number;
+
+  // Escape Velocity (CONCEPT_ESCAPE_VELOCITY) - v_escape = sqrt(2GM/r), the
+  // same "minimum launch velocity required for escape" the module spec
+  // describes (they are the same physical quantity: any speed at or above
+  // v_escape produces an unbound trajectory). Beginner solves for it
+  // directly; Intermediate/Advanced invert for the star's mass or the
+  // radius, mirroring Orbital Velocity's own progression.
+  escapeVelocitySolveFor?: "velocity" | "distance" | "starMass";
+  targetEscapeVelocity?: number;
 }
 
 function clamp(v: number, min: number, max: number): number {
@@ -709,6 +775,106 @@ export class AdaptiveEngine {
         const speed = round1(lerp(vMin, vMax, t));
         const targetPeriod = round2(circularPeriod(radius, speed));
         return { ...base2, unit: "s", speed, targetPeriod, tolerance: round1(lerp(tolMax, tolMin, t)) };
+      }
+
+      // Gravitational Force: F = GMm/r^2. Beginner gives starMass/planetMass/
+      // distanceFromStar and asks for the force directly; Intermediate gives
+      // a target force and solves for distance instead (an inverse-square
+      // relationship - halving distance quadruples force, deliberately
+      // exercised by the narrowing distance range per tier); Advanced solves
+      // for the planet's own mass.
+      case CONCEPT_GRAVITATIONAL_FORCE: {
+        const [msMin, msMax] = [[40, 80], [80, 150], [150, 260]][tier];
+        const [mpMin, mpMax] = [[1, 3], [2, 5], [3, 7]][tier];
+        const [rMin, rMax] = [[3, 5], [4, 7], [5, 9]][tier];
+        const starMass = round1(lerp(msMin, msMax, t));
+        const planetMass = round1(lerp(mpMin, mpMax, t));
+        const distanceFromStar = round1(lerp(rMin, rMax, t));
+        const targetGravitationalForce = round2(gravitationalForce(GRAVITY_SIM_G, starMass, planetMass, distanceFromStar));
+        const gravitationForceSolveFor: "force" | "distance" | "planetMass" = tier === 0 ? "force" : tier === 1 ? "distance" : "planetMass";
+        const [tolMax, tolMin] =
+          gravitationForceSolveFor === "distance"
+            ? [[0.6, 0.4], [0.5, 0.3], [0.4, 0.2]][tier]
+            : gravitationForceSolveFor === "planetMass"
+              ? [[0.4, 0.25], [0.3, 0.18], [0.25, 0.12]][tier]
+              : [[1.5, 0.9], [1.2, 0.7], [0.9, 0.5]][tier];
+        const shared = {
+          ...base,
+          conceptTitle: "Gravitational Force",
+          conceptDescription: "Explore how mass and distance determine the gravitational pull between a planet and its star.",
+          unit: gravitationForceSolveFor === "distance" ? "m" : gravitationForceSolveFor === "planetMass" ? "kg" : "N",
+          gravitationForceSolveFor,
+          starMass,
+          targetGravitationalForce,
+          tolerance: round2(lerp(tolMax, tolMin, t)),
+        };
+        if (gravitationForceSolveFor === "distance") return { ...shared, planetMass };
+        if (gravitationForceSolveFor === "planetMass") return { ...shared, distanceFromStar };
+        return { ...shared, planetMass, distanceFromStar };
+      }
+
+      // Orbital Velocity: v_orbit = sqrt(GM/r). Beginner solves for the
+      // orbital speed directly; Intermediate solves for the orbital radius;
+      // Advanced solves for the star's mass.
+      case CONCEPT_ORBITAL_VELOCITY: {
+        const [msMin, msMax] = [[40, 80], [80, 150], [150, 260]][tier];
+        const [rMin, rMax] = [[3, 5], [4, 7], [5, 9]][tier];
+        const starMass = round1(lerp(msMin, msMax, t));
+        const distanceFromStar = round1(lerp(rMin, rMax, t));
+        const targetOrbitalVelocity = round2(orbitalVelocity(GRAVITY_SIM_G, starMass, distanceFromStar));
+        const orbitalVelocitySolveFor: "velocity" | "distance" | "starMass" = tier === 0 ? "velocity" : tier === 1 ? "distance" : "starMass";
+        const [tolMax, tolMin] =
+          orbitalVelocitySolveFor === "distance"
+            ? [[0.6, 0.4], [0.5, 0.3], [0.4, 0.2]][tier]
+            : orbitalVelocitySolveFor === "starMass"
+              ? [[6, 4], [5, 3], [4, 2]][tier]
+              : [[0.5, 0.3], [0.4, 0.25], [0.3, 0.18]][tier];
+        const shared = {
+          ...base,
+          conceptTitle: "Orbital Velocity",
+          conceptDescription: "Find the speed needed to keep a planet in a stable circular orbit around its star.",
+          unit: orbitalVelocitySolveFor === "distance" ? "m" : orbitalVelocitySolveFor === "starMass" ? "kg" : "m/s",
+          orbitalVelocitySolveFor,
+          targetOrbitalVelocity,
+          tolerance: round2(lerp(tolMax, tolMin, t)),
+        };
+        if (orbitalVelocitySolveFor === "distance") return { ...shared, starMass };
+        if (orbitalVelocitySolveFor === "starMass") return { ...shared, distanceFromStar };
+        return { ...shared, starMass, distanceFromStar };
+      }
+
+      // Escape Velocity: v_escape = sqrt(2GM/r) - always exactly sqrt(2)
+      // times this same challenge's orbital velocity at the same radius.
+      // Beginner solves for it directly (the "minimum launch velocity
+      // required for escape" framing the module spec also calls for - the
+      // same physical quantity, not a second computation); Intermediate/
+      // Advanced invert for the star's mass or the radius, mirroring Orbital
+      // Velocity's own progression.
+      case CONCEPT_ESCAPE_VELOCITY: {
+        const [msMin, msMax] = [[40, 80], [80, 150], [150, 260]][tier];
+        const [rMin, rMax] = [[3, 5], [4, 7], [5, 9]][tier];
+        const starMass = round1(lerp(msMin, msMax, t));
+        const distanceFromStar = round1(lerp(rMin, rMax, t));
+        const targetEscapeVelocity = round2(escapeVelocity(GRAVITY_SIM_G, starMass, distanceFromStar));
+        const escapeVelocitySolveFor: "velocity" | "distance" | "starMass" = tier === 0 ? "velocity" : tier === 1 ? "distance" : "starMass";
+        const [tolMax, tolMin] =
+          escapeVelocitySolveFor === "distance"
+            ? [[0.6, 0.4], [0.5, 0.3], [0.4, 0.2]][tier]
+            : escapeVelocitySolveFor === "starMass"
+              ? [[6, 4], [5, 3], [4, 2]][tier]
+              : [[0.6, 0.4], [0.5, 0.3], [0.4, 0.22]][tier];
+        const shared = {
+          ...base,
+          conceptTitle: "Escape Velocity",
+          conceptDescription: "Determine the minimum launch velocity needed to escape a star's gravity entirely.",
+          unit: escapeVelocitySolveFor === "distance" ? "m" : escapeVelocitySolveFor === "starMass" ? "kg" : "m/s",
+          escapeVelocitySolveFor,
+          targetEscapeVelocity,
+          tolerance: round2(lerp(tolMax, tolMin, t)),
+        };
+        if (escapeVelocitySolveFor === "distance") return { ...shared, starMass };
+        if (escapeVelocitySolveFor === "starMass") return { ...shared, distanceFromStar };
+        return { ...shared, starMass, distanceFromStar };
       }
 
       default:

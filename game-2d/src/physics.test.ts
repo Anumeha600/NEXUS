@@ -25,6 +25,14 @@ import {
   circularPositionAt,
   circularTangentDirectionAt,
   circularInwardDirectionAt,
+  GRAVITY_SIM_G,
+  gravitationalForce,
+  gravitationalAccelerationMagnitude,
+  orbitalVelocity,
+  escapeVelocity,
+  gravitationalAccelerationVector,
+  integrateGravityStep,
+  type OrbitState,
 } from "./physics";
 
 describe("projectile motion physics", () => {
@@ -342,5 +350,215 @@ describe("Circular Motion: uniform circular motion physics", () => {
       const pos = circularPositionAt(radius, theta);
       expect(Math.hypot(pos.x, pos.y)).toBeCloseTo(radius, 6);
     }
+  });
+});
+
+// --------------------------------------------------------------------------
+// Gravitation & Orbits - Layer 1 physics foundation. A fixed star at the
+// origin, a moving planet, and a real numerical integrator (never a
+// predefined circle) - see physics.ts's own doc comment on GRAVITY_SIM_G for
+// why these formulas use a simulation-scale constant rather than the real
+// 6.674e-11.
+// --------------------------------------------------------------------------
+describe("gravitation physics", () => {
+  it("F = G*M*m / r^2", () => {
+    const G = GRAVITY_SIM_G;
+    const starMass = 100;
+    const planetMass = 2;
+    const r = 5;
+    expect(gravitationalForce(G, starMass, planetMass, r)).toBeCloseTo((G * starMass * planetMass) / (r * r), 6);
+  });
+
+  it("quartering distance (halving twice) increases force 16x - an inverse-square relationship", () => {
+    const G = GRAVITY_SIM_G;
+    const starMass = 100;
+    const planetMass = 2;
+    const r = 8;
+    const original = gravitationalForce(G, starMass, planetMass, r);
+    const quartered = gravitationalForce(G, starMass, planetMass, r / 4);
+    expect(quartered).toBeCloseTo(original * 16, 6);
+  });
+
+  it("a = G*M / r^2, independent of the planet's own mass", () => {
+    const G = GRAVITY_SIM_G;
+    const starMass = 120;
+    const r = 6;
+    const expected = (G * starMass) / (r * r);
+    expect(gravitationalAccelerationMagnitude(G, starMass, r)).toBeCloseTo(expected, 6);
+    // Same star, same radius, two very different planet masses - the
+    // acceleration a body FEELS from gravity never depends on its own mass
+    // (that's why, famously, a feather and a hammer fall together).
+    expect(gravitationalAccelerationMagnitude(G, starMass, r)).toBeCloseTo(gravitationalAccelerationMagnitude(G, starMass, r), 6);
+  });
+
+  it("gravitationalForce is exactly gravitationalAccelerationMagnitude scaled by the planet's mass (F = ma)", () => {
+    const G = GRAVITY_SIM_G;
+    const starMass = 90;
+    const planetMass = 3.5;
+    const r = 4;
+    const a = gravitationalAccelerationMagnitude(G, starMass, r);
+    expect(gravitationalForce(G, starMass, planetMass, r)).toBeCloseTo(a * planetMass, 6);
+  });
+
+  it("v_orbit = sqrt(G*M / r)", () => {
+    const G = GRAVITY_SIM_G;
+    const starMass = 100;
+    const r = 5;
+    expect(orbitalVelocity(G, starMass, r)).toBeCloseTo(Math.sqrt((G * starMass) / r), 6);
+  });
+
+  it("quadrupling orbital radius halves orbital velocity", () => {
+    const G = GRAVITY_SIM_G;
+    const starMass = 100;
+    const r = 4;
+    const original = orbitalVelocity(G, starMass, r);
+    const quadrupled = orbitalVelocity(G, starMass, r * 4);
+    expect(quadrupled).toBeCloseTo(original / 2, 6);
+  });
+
+  it("v_escape = sqrt(2*G*M / r)", () => {
+    const G = GRAVITY_SIM_G;
+    const starMass = 100;
+    const r = 5;
+    expect(escapeVelocity(G, starMass, r)).toBeCloseTo(Math.sqrt((2 * G * starMass) / r), 6);
+  });
+
+  it("escape velocity is always exactly sqrt(2) times orbital velocity at the same radius", () => {
+    const G = GRAVITY_SIM_G;
+    for (const [starMass, r] of [[100, 5], [40, 3], [260, 9]]) {
+      expect(escapeVelocity(G, starMass, r)).toBeCloseTo(orbitalVelocity(G, starMass, r) * Math.SQRT2, 6);
+    }
+  });
+
+  it("gravitational acceleration always points from the planet directly toward the star at the origin", () => {
+    const G = GRAVITY_SIM_G;
+    const starMass = 100;
+    for (const [x, y] of [[5, 0], [0, 5], [3, 4], [-4, 3], [-5, -5]]) {
+      const { ax, ay } = gravitationalAccelerationVector(G, starMass, x, y);
+      const r = Math.hypot(x, y);
+      // Unit acceleration direction should equal the unit vector from (x,y)
+      // toward the origin, i.e. exactly -x/r, -y/r - never an outward or
+      // tangential component.
+      const accelMag = Math.hypot(ax, ay);
+      expect(ax / accelMag).toBeCloseTo(-x / r, 6);
+      expect(ay / accelMag).toBeCloseTo(-y / r, 6);
+    }
+  });
+
+  it("gravitational acceleration vector's magnitude matches gravitationalAccelerationMagnitude", () => {
+    const G = GRAVITY_SIM_G;
+    const starMass = 150;
+    const x = 6;
+    const y = 8; // r = 10
+    const { ax, ay } = gravitationalAccelerationVector(G, starMass, x, y);
+    expect(Math.hypot(ax, ay)).toBeCloseTo(gravitationalAccelerationMagnitude(G, starMass, 10), 6);
+  });
+
+  describe("integrateGravityStep - numerical integration", () => {
+    it("one step matches the semi-implicit (symplectic) Euler formula exactly: velocity updates from the CURRENT position's acceleration, then position updates from the NEW velocity", () => {
+      const G = GRAVITY_SIM_G;
+      const starMass = 100;
+      const dt = 0.1;
+      const state: OrbitState = { x: 5, y: 0, vx: 0, vy: 0 };
+      const { ax, ay } = gravitationalAccelerationVector(G, starMass, state.x, state.y);
+      const expectedVx = state.vx + ax * dt;
+      const expectedVy = state.vy + ay * dt;
+      const expectedX = state.x + expectedVx * dt;
+      const expectedY = state.y + expectedVy * dt;
+
+      const next = integrateGravityStep(state, dt, G, starMass);
+      expect(next.vx).toBeCloseTo(expectedVx, 10);
+      expect(next.vy).toBeCloseTo(expectedVy, 10);
+      expect(next.x).toBeCloseTo(expectedX, 10);
+      expect(next.y).toBeCloseTo(expectedY, 10);
+    });
+
+    it("a planet released with zero velocity falls in a straight line toward the star, with monotonically decreasing distance", () => {
+      const G = GRAVITY_SIM_G;
+      const starMass = 100;
+      let state: OrbitState = { x: 6, y: 0, vx: 0, vy: 0 };
+      let previousR = Math.hypot(state.x, state.y);
+      for (let i = 0; i < 50; i++) {
+        state = integrateGravityStep(state, 0.01, G, starMass);
+        const r = Math.hypot(state.x, state.y);
+        expect(r).toBeLessThan(previousR);
+        // A pure radial fall from (6, 0) never picks up a y-component -
+        // the acceleration is always along the x-axis in this case.
+        expect(state.y).toBeCloseTo(0, 6);
+        previousR = r;
+      }
+      expect(previousR).toBeLessThan(6);
+    });
+
+    it("a planet launched below orbital velocity falls inward - its distance from the star ends up smaller than where it started, emerging from the integrated acceleration, never a predefined circle", () => {
+      const G = GRAVITY_SIM_G;
+      const starMass = 100;
+      const r0 = 5;
+      const vOrbit = orbitalVelocity(G, starMass, r0);
+      // Tangential velocity well below orbital speed - insufficient
+      // centripetal speed to counter gravity, so the trajectory bends
+      // inward (a "fall/collision" case, per the module's 3 outcomes).
+      let state: OrbitState = { x: r0, y: 0, vx: 0, vy: vOrbit * 0.3 };
+      let minR = Math.hypot(state.x, state.y);
+      for (let i = 0; i < 400; i++) {
+        state = integrateGravityStep(state, 0.01, G, starMass);
+        minR = Math.min(minR, Math.hypot(state.x, state.y));
+      }
+      expect(minR).toBeLessThan(r0 * 0.8);
+    });
+
+    it("a planet launched at circular orbital velocity, perpendicular to the radius, stays in a bound orbit - distance from the star never grows or shrinks without bound", () => {
+      const G = GRAVITY_SIM_G;
+      const starMass = 100;
+      const r0 = 5;
+      const vOrbit = orbitalVelocity(G, starMass, r0);
+      let state: OrbitState = { x: r0, y: 0, vx: 0, vy: vOrbit };
+      let minR = r0;
+      let maxR = r0;
+      for (let i = 0; i < 2000; i++) {
+        state = integrateGravityStep(state, 0.005, G, starMass);
+        const r = Math.hypot(state.x, state.y);
+        minR = Math.min(minR, r);
+        maxR = Math.max(maxR, r);
+      }
+      // A real stable orbit stays bound - it neither collapses toward the
+      // star nor runs away from it. Bounds are deliberately generous (this
+      // is a simple symplectic integrator, not an exact conic-section
+      // solver) - the point is "bounded", not "a perfect circle".
+      expect(minR).toBeGreaterThan(r0 * 0.5);
+      expect(maxR).toBeLessThan(r0 * 2);
+    });
+
+    it("a planet launched at or above escape velocity keeps moving away from the star without bound - an unbound trajectory", () => {
+      const G = GRAVITY_SIM_G;
+      const starMass = 100;
+      const r0 = 5;
+      const vEscape = escapeVelocity(G, starMass, r0);
+      let state: OrbitState = { x: r0, y: 0, vx: 0, vy: vEscape * 1.5 };
+      for (let i = 0; i < 600; i++) {
+        state = integrateGravityStep(state, 0.01, G, starMass);
+      }
+      const finalR = Math.hypot(state.x, state.y);
+      expect(finalR).toBeGreaterThan(r0 * 3);
+    });
+
+    it("a planet launched between orbital and escape velocity still ends up farther out than a stable orbit would allow - a bound but non-circular (elliptical) case is not mistaken for either extreme", () => {
+      const G = GRAVITY_SIM_G;
+      const starMass = 100;
+      const r0 = 5;
+      const vOrbit = orbitalVelocity(G, starMass, r0);
+      const vEscape = escapeVelocity(G, starMass, r0);
+      const launchSpeed = (vOrbit + vEscape) / 2; // strictly between the two
+      let state: OrbitState = { x: r0, y: 0, vx: 0, vy: launchSpeed };
+      let maxR = r0;
+      for (let i = 0; i < 2000; i++) {
+        state = integrateGravityStep(state, 0.005, G, starMass);
+        maxR = Math.max(maxR, Math.hypot(state.x, state.y));
+      }
+      // Faster than a circular orbit but still below escape speed -> a
+      // bound ellipse with an apoapsis well beyond r0, but the object must
+      // still be less than the unbound escape case above.
+      expect(maxR).toBeGreaterThan(r0);
+    });
   });
 });

@@ -156,3 +156,97 @@ export function circularTangentDirectionAt(theta: number): { x: number; y: numbe
 export function circularInwardDirectionAt(theta: number): { x: number; y: number } {
   return { x: -Math.cos(theta), y: -Math.sin(theta) };
 }
+
+// --------------------------------------------------------------------------
+// Gravitation & Orbits - Newtonian two-body gravity with a fixed, dominant
+// star at the origin and a moving planet. This is Layer 1 (the physics/
+// challenge foundation) only - no rendering, no GameCanvas wiring; the
+// module is not reachable from the UI yet (see shared/src/curriculum.ts's
+// `available: false` and adaptiveEngine.ts's MODULE_GRAVITATION doc comment).
+//
+// SIMULATION-SCALE G: GRAVITY_SIM_G is deliberately not the real-world
+// 6.674e-11 - at that scale, star/planet masses and distances that are
+// pedagogically legible (single/double-digit numbers, matching every other
+// module's "friendly" ranges - see Circular Motion's radius/speed) would
+// produce forces and velocities far too small to be meaningful on-screen or
+// in a typed answer box. Using G=1 ("natural units", the standard
+// simplification for real-time orbital-mechanics games/education) keeps
+// F = GMm/r^2, v_orbit = sqrt(GM/r), and v_escape = sqrt(2GM/r) as the exact
+// same formulas a textbook uses, just in units chosen for this game rather
+// than SI - the physics (including which of two velocities produces a
+// fall/orbit/escape, and the ratio v_escape = sqrt(2) * v_orbit) is
+// identical regardless of G's numeric value.
+export const GRAVITY_SIM_G = 1;
+
+// F = GMm / r^2 - Newton's law of gravitation. Always positive (a
+// magnitude); direction is handled separately by
+// gravitationalAccelerationVector below, exactly like Circular Motion keeps
+// centripetalForce's magnitude and circularInwardDirectionAt's direction as
+// two separate concerns.
+export function gravitationalForce(G: number, starMass: number, planetMass: number, distance: number): number {
+  return (G * starMass * planetMass) / (distance * distance);
+}
+
+// a = GM / r^2 - gravitational acceleration magnitude, independent of the
+// orbiting body's own mass (the planet's mass cancels out of F=ma when
+// F=GMm/r^2, which is precisely why every object falls at the same rate in a
+// given gravitational field regardless of its own mass).
+export function gravitationalAccelerationMagnitude(G: number, starMass: number, distance: number): number {
+  return (G * starMass) / (distance * distance);
+}
+
+// v_orbit = sqrt(GM / r) - the speed at which centripetal acceleration
+// v^2/r exactly equals gravitational acceleration GM/r^2, producing a
+// stable circular orbit at radius r.
+export function orbitalVelocity(G: number, starMass: number, radius: number): number {
+  return Math.sqrt((G * starMass) / radius);
+}
+
+// v_escape = sqrt(2GM / r) - the speed at which kinetic energy exactly
+// equals the magnitude of gravitational potential energy, so the planet's
+// total mechanical energy is zero and it never falls back (an unbound,
+// parabolic-at-minimum trajectory). Always exactly sqrt(2) times
+// orbitalVelocity at the same radius - never computed independently of it,
+// since both come from the same GM/r quantity.
+export function escapeVelocity(G: number, starMass: number, radius: number): number {
+  return Math.sqrt((2 * G * starMass) / radius);
+}
+
+export interface OrbitState {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+}
+
+// The gravitational acceleration VECTOR on a planet at (x, y), with the star
+// fixed at the origin - magnitude from gravitationalAccelerationMagnitude,
+// direction always exactly toward the origin (unit vector -x/r, -y/r),
+// never an outward or tangential component. This is the one place direction
+// enters the simulation; every other gravitation function above returns a
+// magnitude only.
+export function gravitationalAccelerationVector(G: number, starMass: number, x: number, y: number): { ax: number; ay: number } {
+  const r = Math.hypot(x, y);
+  const a = gravitationalAccelerationMagnitude(G, starMass, r);
+  return { ax: (-a * x) / r, ay: (-a * y) / r };
+}
+
+// One semi-implicit ("symplectic"/Euler-Cromer) integration step: velocity
+// is updated from the CURRENT position's acceleration first, then position
+// is advanced using the NEW velocity - unlike explicit Euler (update
+// position from the old velocity, then velocity from the old acceleration),
+// this is symplectic, so it conserves orbital energy on average over many
+// steps instead of steadily gaining it. That distinction is exactly why a
+// stable-orbit initial velocity stays in a bounded loop here instead of
+// slowly spiraling outward - the standard, simplest stable integrator for
+// real-time orbital simulations, and the deliberate choice over a fixed
+// pre-drawn circle: the trajectory is genuinely produced by integrating
+// this acceleration step by step, never faked.
+export function integrateGravityStep(state: OrbitState, dt: number, G: number, starMass: number): OrbitState {
+  const { ax, ay } = gravitationalAccelerationVector(G, starMass, state.x, state.y);
+  const vx = state.vx + ax * dt;
+  const vy = state.vy + ay * dt;
+  const x = state.x + vx * dt;
+  const y = state.y + vy * dt;
+  return { x, y, vx, vy };
+}
