@@ -32,6 +32,7 @@ import {
   escapeVelocity,
   gravitationalAccelerationVector,
   integrateGravityStep,
+  specificOrbitalEnergy,
   type OrbitState,
 } from "./physics";
 
@@ -559,6 +560,46 @@ describe("gravitation physics", () => {
       // bound ellipse with an apoapsis well beyond r0, but the object must
       // still be less than the unbound escape case above.
       expect(maxR).toBeGreaterThan(r0);
+    });
+  });
+
+  describe("specificOrbitalEnergy - E = v^2/2 - GM/r", () => {
+    it("is negative for a circular orbit (bound trajectory)", () => {
+      const G = GRAVITY_SIM_G;
+      const starMass = 100;
+      const r0 = 5;
+      const vOrbit = orbitalVelocity(G, starMass, r0);
+      expect(specificOrbitalEnergy(G, starMass, r0, 0, 0, vOrbit)).toBeLessThan(0);
+    });
+
+    it("is exactly zero at escape velocity", () => {
+      const G = GRAVITY_SIM_G;
+      const starMass = 100;
+      const r0 = 5;
+      const vEscape = escapeVelocity(G, starMass, r0);
+      expect(specificOrbitalEnergy(G, starMass, r0, 0, 0, vEscape)).toBeCloseTo(0, 8);
+    });
+
+    it("is positive above escape velocity (unbound trajectory)", () => {
+      const G = GRAVITY_SIM_G;
+      const starMass = 100;
+      const r0 = 5;
+      const vEscape = escapeVelocity(G, starMass, r0);
+      expect(specificOrbitalEnergy(G, starMass, r0, 0, 0, vEscape * 1.2)).toBeGreaterThan(0);
+    });
+
+    it("is conserved (to floating-point precision) as G*M/r and v^2 are computed fresh at any point, independent of direction", () => {
+      const G = GRAVITY_SIM_G;
+      const starMass = 90;
+      const r0 = 6;
+      const speed = 4;
+      // Same speed, same radius, different directions - energy only depends
+      // on speed and distance, never on the velocity's direction.
+      const e1 = specificOrbitalEnergy(G, starMass, r0, 0, 0, speed);
+      const e2 = specificOrbitalEnergy(G, starMass, 0, r0, speed, 0);
+      const e3 = specificOrbitalEnergy(G, starMass, r0, 0, speed / Math.SQRT2, speed / Math.SQRT2);
+      expect(e2).toBeCloseTo(e1, 10);
+      expect(e3).toBeCloseTo(e1, 10);
     });
   });
 });

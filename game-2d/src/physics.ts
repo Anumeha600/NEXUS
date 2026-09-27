@@ -250,3 +250,16 @@ export function integrateGravityStep(state: OrbitState, dt: number, G: number, s
   const y = state.y + vy * dt;
   return { x, y, vx, vy };
 }
+
+// Specific (per-unit-mass) orbital mechanical energy: E = v^2/2 - GM/r -
+// kinetic energy minus gravitational potential energy, both per unit mass.
+// This is the textbook classification behind fall/orbit/escape: E < 0 is a
+// bound trajectory (circle/ellipse) that can never reach infinity, E == 0 is
+// exactly escape velocity (unbound only in the limit), E > 0 is a genuinely
+// unbound trajectory. Layer 2's escape detection uses this instead of an
+// arbitrary distance cutoff (e.g. "if x > 100 then escaped").
+export function specificOrbitalEnergy(G: number, starMass: number, x: number, y: number, vx: number, vy: number): number {
+  const r = Math.hypot(x, y);
+  const speedSquared = vx * vx + vy * vy;
+  return speedSquared / 2 - (G * starMass) / r;
+}
