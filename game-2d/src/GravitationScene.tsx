@@ -36,8 +36,10 @@ export interface GravitationSceneProps {
   attemptId?: number;
   // Fires whenever gravitationSim.ts's own status changes - never a second
   // outcome classification, just surfacing the simulation's existing status
+  // (and the state it came from, so a caller can read elapsedTime/trajectory
+  // for a completed attempt without re-running or duplicating any physics)
   // to whatever is controlling this component.
-  onStatusChange?: (status: GravitationSimStatus) => void;
+  onStatusChange?: (status: GravitationSimStatus, state: GravitationSimState) => void;
   width?: number;
   height?: number;
 }
@@ -83,7 +85,7 @@ export default function GravitationScene({
       }
       if (stateRef.current.status !== lastReportedStatusRef.current) {
         lastReportedStatusRef.current = stateRef.current.status;
-        onStatusChangeRef.current?.(stateRef.current.status);
+        onStatusChangeRef.current?.(stateRef.current.status, stateRef.current);
       }
       drawGravitationScene(ctx as CanvasRenderingContext2D, width, height, stateRef.current);
       raf = requestAnimationFrame(frame);

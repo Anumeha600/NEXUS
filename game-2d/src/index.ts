@@ -7,4 +7,5 @@ export type { GravitationSceneProps } from "./GravitationScene";
 export { default as GravitationScene } from "./GravitationScene";
 export * from "./gravitationRender";
 export * from "./gravitationChallenge";
+export * from "./gravitationLearning";
 export { default as GravitationChallengeScene } from "./GravitationChallengeScene";
