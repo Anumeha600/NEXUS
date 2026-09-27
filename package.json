@@ -1,0 +1,14 @@
+{
+  "name": "nexus-monorepo",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "game-2d",
+    "web-2d",
+    "web-3d"
+  ],
+  "scripts": {
+    "test": "npm run test --workspace=@nexus/game-2d",
+    "test:watch": "npm run test:watch --workspace=@nexus/game-2d"
+  }
+}

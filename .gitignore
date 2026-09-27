@@ -1,0 +1,31 @@
+# Godot
+.godot/
+*.translation
+export_presets.cfg.bak
+
+# Godot export output at the project root - the canonical copy the website
+# serves lives in website/public/game/ and IS committed (Vercel has no
+# Godot toolchain to regenerate it at build time).
+/build/
+
+# Node / website
+website/node_modules/
+website/.next/
+website/out/
+website/.vercel/
+website/*.tsbuildinfo
+website/next-env.d.ts
+
+# Env secrets - never commit real values
+.env
+.env.local
+.env.*.local
+website/.env
+website/.env.local
+website/.env.*.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.claude/
+node_modules

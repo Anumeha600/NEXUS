@@ -1,0 +1,180 @@
+@import "tailwindcss";
+
+/* @nexus/game-2d and @nexus/shared are separate workspace packages (their
+   source lives outside this app's own directory tree, only symlinked into
+   node_modules), so Tailwind's automatic content detection never scans them
+   by default. This explicitly adds both, or their utility classes silently
+   never get generated - this is exactly what caused the Learn page's concept
+   formula card to render as an empty white box: shared/src/curriculum.ts's
+   ModuleTheme strings (`theme.accent`/`ring`/`chip`, e.g. "from-blue
+   to-cyan") were never scanned, so `bg-gradient-to-br ${theme.accent}` had
+   no CSS behind it and the card's white `text-white` formula text sat on an
+   unstyled (white) background. */
+@source "../../../game-2d/src";
+@source "../../../shared/src";
+
+:root {
+  /* NEXUS product palette v3 - premium LIGHT gaming dashboard.
+     Mirrors the in-game design system (scripts/design/palette.gd) in
+     spirit (purple/blue/cyan/gold/green functional roles), tuned for a
+     soft lavender "illuminated" atmosphere rather than a flat gray page. */
+  --background: #f3f1ff;
+  --foreground: #17182b;
+
+  --nexus-bg: #f8f7ff;
+  --nexus-surface: #ffffff;
+  --nexus-surface-lavender: #f0edff;
+  --nexus-surface-blue: #eef5ff;
+  --nexus-border: #e6e2f7;
+
+  --nexus-ink: #17182b;
+  --nexus-ink-muted: #5c5a72;
+
+  --nexus-purple: #6c4dff;
+  --nexus-purple-dark: #4f34d1;
+  --nexus-blue: #3478f6;
+  --nexus-blue-dark: #1f56c9;
+  --nexus-cyan: #20c7d9;
+
+  --nexus-gold: #f4b942;
+  --nexus-gold-dark: #c98f14;
+  --nexus-green: #1f9d55;
+  --nexus-red: #d1483a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-display: var(--font-display);
+
+  --color-bg: var(--nexus-bg);
+  --color-surface: var(--nexus-surface);
+  --color-surface-lavender: var(--nexus-surface-lavender);
+  --color-surface-blue: var(--nexus-surface-blue);
+  --color-border: var(--nexus-border);
+
+  --color-ink: var(--nexus-ink);
+  --color-ink-muted: var(--nexus-ink-muted);
+
+  --color-purple: var(--nexus-purple);
+  --color-purple-dark: var(--nexus-purple-dark);
+  --color-blue: var(--nexus-blue);
+  --color-blue-dark: var(--nexus-blue-dark);
+  --color-cyan: var(--nexus-cyan);
+
+  --color-gold: var(--nexus-gold);
+  --color-gold-dark: var(--nexus-gold-dark);
+  --color-green: var(--nexus-green);
+  --color-red: var(--nexus-red);
+}
+
+body {
+  /* Soft, "illuminated rather than colored" lavender canvas: a few very
+     large, very low-opacity radial glows over a pale violet base. This is
+     the atmosphere the app-shell card and header pill float above. */
+  background-color: var(--background);
+  background-image:
+    radial-gradient(1100px 550px at 12% -8%, rgba(140, 110, 255, 0.16), transparent 60%),
+    radial-gradient(900px 500px at 100% 4%, rgba(52, 120, 246, 0.12), transparent 55%),
+    radial-gradient(800px 480px at 45% 105%, rgba(244, 120, 190, 0.10), transparent 55%);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-display), var(--font-sans), sans-serif;
+}
+
+.gradient-purple-blue {
+  background-image: linear-gradient(135deg, var(--nexus-purple), var(--nexus-blue));
+}
+
+.gradient-blue-cyan {
+  background-image: linear-gradient(135deg, var(--nexus-blue), var(--nexus-cyan));
+}
+
+.card-elevated {
+  box-shadow: 0 1px 2px rgba(23, 24, 43, 0.04), 0 8px 24px rgba(108, 77, 255, 0.08);
+}
+
+/* Large rounded "application surface" that the whole site sits inside,
+   floating over the lavender canvas - restrained glassmorphism, not the
+   "everything is transparent" look. */
+.app-shell {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 60px 120px -40px rgba(108, 77, 255, 0.30),
+    0 20px 50px -25px rgba(108, 77, 255, 0.16);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+/* Fixed full-width fade/blur band behind the floating header, independent of
+   its pill shape - without this, page content that scrolls into the header's
+   on-screen band shows through legibly in the gaps around the translucent
+   pill (top/bottom of stat cards, etc.) instead of fading out, which reads as
+   the nav "overlapping" content. Sits below the header's z-index so the pill
+   itself still draws on top. */
+.nav-scrim {
+  -webkit-mask-image: linear-gradient(to bottom, black, black 45%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black, black 45%, transparent 100%);
+}
+
+/* Smaller glass surfaces for nav / cards inside the shell. */
+.glass-card {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 24px 48px -20px rgba(108, 77, 255, 0.20);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.dot-grid {
+  background-image: radial-gradient(rgba(108, 77, 255, 0.14) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+@keyframes loadingBar {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+@keyframes insightAppear {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes lessonBackdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes lessonPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
