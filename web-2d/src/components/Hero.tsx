@@ -25,8 +25,9 @@ export default function Hero() {
           <p className="mt-4 max-w-lg text-base text-ink-muted sm:text-lg">
             An adaptive Physics learning game that changes challenge
             difficulty and learning content based on your performance —
-            across Projectile Motion, Newton&apos;s Laws, Work &amp; Energy,
-            Momentum &amp; Collisions, and Circular Motion.
+            across five core adaptive modules (Projectile Motion,
+            Newton&apos;s Laws, Work &amp; Energy, Momentum &amp; Collisions,
+            and Circular Motion), plus the Gravitation &amp; Orbits lab.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">

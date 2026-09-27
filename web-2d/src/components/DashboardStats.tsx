@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { readSessionHistory, summarizeSession, TOTAL_CONCEPTS, TOTAL_MODULES } from "@nexus/shared";
+import { readSessionHistory, summarizeSession, TOTAL_CONCEPTS, TOTAL_PHYSICS_LABS } from "@nexus/shared";
 
 export default function DashboardStats() {
   const [overallMastery, setOverallMastery] = useState<string>("—");
@@ -28,7 +28,7 @@ export default function DashboardStats() {
   const stats = [
     { value: overallMastery, label: "Overall Mastery (this session)", color: "text-purple" },
     { value: String(TOTAL_CONCEPTS), label: "Core Concepts", color: "text-blue" },
-    { value: String(TOTAL_MODULES), label: "Physics Modules", color: "text-cyan" },
+    { value: String(TOTAL_PHYSICS_LABS), label: "Physics Labs", color: "text-cyan" },
     { value: recentPerformance, label: "Recent Performance", color: "text-gold-dark" },
   ];
 

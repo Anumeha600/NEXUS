@@ -69,7 +69,7 @@ const HELP_CONTENT: Record<string, HelpContent> = {
   [MODULE_GRAVITATION]: {
     description: "Launch a planet at a chosen velocity and see whether gravity pulls it into the star, holds it in orbit, or lets it escape.",
     readStep: "Read the star's mass and the planet's starting distance.",
-    adjustStep: "Choose the planet's initial velocity using the slider.",
+    adjustStep: "Type the planet's initial velocity.",
     observeStep: "Watch the planet's trajectory curve under gravity.",
     confirmStep:
       "Interpret the result: too little velocity falls into the star, orbital velocity gives a bounded orbit, an intermediate velocity gives an elliptical orbit, and a high enough velocity escapes.",

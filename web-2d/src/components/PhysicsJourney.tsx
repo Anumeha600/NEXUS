@@ -1,11 +1,16 @@
 import Link from "next/link";
-import { AVAILABLE_MODULES, TOTAL_MODULES } from "@nexus/shared";
+import { AVAILABLE_MODULES, OPTIONAL_LABS, TOTAL_PHYSICS_LABS } from "@nexus/shared";
 import ModuleArtwork from "@/components/ModuleArtwork";
 
 // Only modules with a working game link out to /play - a curriculum-only
-// entry (available: false) has nothing to play yet, so it has no place on
-// this promotional section until its own phase actually implements it.
-const MODULES = AVAILABLE_MODULES.map((mod) => ({
+// entry (available: false, no optionalLab) has nothing to play yet, so it
+// has no place on this promotional section until its own phase actually
+// implements it. This is the same "real playable labs, in curriculum order"
+// concept PlayHub.tsx's own PHYSICS_LAB_MODULES uses - AVAILABLE_MODULES
+// (the 5-module adaptive sequence) followed by OPTIONAL_LABS (real games
+// outside it, e.g. Gravitation & Orbits), matching the heading above's
+// TOTAL_PHYSICS_LABS count exactly.
+const PHYSICS_JOURNEY_MODULES = [...AVAILABLE_MODULES, ...OPTIONAL_LABS].map((mod) => ({
   slug: mod.id,
   modulePath: `/play?module=${mod.id}`,
   name: mod.title,
@@ -24,12 +29,12 @@ export default function PhysicsJourney() {
             Physics Journey
           </span>
           <h2 className="mt-2 font-display text-3xl font-extrabold text-ink sm:text-4xl">
-            {TOTAL_MODULES} Physics labs, one adaptive engine
+            {TOTAL_PHYSICS_LABS} Physics labs, one adaptive engine
           </h2>
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">
-          {MODULES.map((mod) => (
+          {PHYSICS_JOURNEY_MODULES.map((mod) => (
             <div
               key={mod.slug}
               className={`glass-card group flex flex-col overflow-hidden rounded-3xl ring-1 ${mod.ring} transition hover:-translate-y-1`}

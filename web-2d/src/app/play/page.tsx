@@ -22,12 +22,12 @@ export default async function PlayPage({ searchParams }: { searchParams: Promise
     );
   }
 
-  // Gravitation & Orbits is an optional lab with its own fully self-contained
-  // AdaptiveEngine/game loop (see GravitationChallengeScene's own header
-  // comment) - it never goes through GameCanvas/PlayExperience, which have
-  // no cases for its challenge types at all. This is the one module-specific
-  // branch in this route; every other module id (including an unrecognized
-  // one) still falls through to PlayExperience/GameCanvas exactly as before.
+  // Gravitation & Orbits has its own fully self-contained AdaptiveEngine/game
+  // loop (see GravitationChallengeScene's own header comment) - it never goes
+  // through GameCanvas/PlayExperience, which have no cases for its challenge
+  // types at all. This is the one module-specific branch in this route; every
+  // other module id (including an unrecognized one) still falls through to
+  // PlayExperience/GameCanvas exactly as before.
   if (module === "gravitation") {
     return (
       <div className="px-6 py-12">
@@ -39,7 +39,7 @@ export default async function PlayPage({ searchParams }: { searchParams: Promise
             <span className="mt-4 block text-xs font-bold tracking-[0.2em] text-purple uppercase">Nexus / Play</span>
             <h1 className="mt-2 font-display text-3xl font-extrabold text-ink sm:text-4xl">Gravitation & Orbits</h1>
             <p className="mt-2 max-w-2xl text-ink-muted">
-              An optional lab, outside your adaptive journey - launch a planet and let gravity decide whether it falls, orbits, or escapes.
+              Launch a planet and let gravity decide whether it falls, orbits, or escapes.
             </p>
           </div>
 

@@ -13,6 +13,7 @@ import {
   gravitationOutcomeExplanation,
   gravitationUnsupportedPlayerMessage,
   velocitySliderPercent,
+  validateGravitationVelocityInput,
 } from "./gravitationChallenge";
 
 // Same helper pattern adaptiveEngine.test.ts itself uses to force a specific
@@ -274,6 +275,57 @@ describe("Layer 6 presentational helpers", () => {
 
     it("never divides by zero when min and max collide, returning 0 instead of NaN/Infinity", () => {
       expect(velocitySliderPercent(5, 5, 5)).toBe(0);
+    });
+  });
+
+  describe("validateGravitationVelocityInput - manual velocity input validation", () => {
+    function setupFor(mastery: number) {
+      return gravitationSimSetupFor(gravitationChallenge(CONCEPT_ORBITAL_VELOCITY, mastery));
+    }
+
+    it("accepts a value within [minVelocity, maxVelocity], returning it exactly as typed", () => {
+      const setup = setupFor(0.1);
+      const value = (setup.minVelocity + setup.maxVelocity) / 2;
+      const result = validateGravitationVelocityInput(String(value), setup);
+      expect(result).toEqual({ value });
+    });
+
+    it("accepts a value with extra decimal precision, without rounding or clamping it", () => {
+      const setup = setupFor(0.1);
+      const value = Math.min(setup.maxVelocity, setup.minVelocity + 1.23456789);
+      const result = validateGravitationVelocityInput(value.toString(), setup);
+      expect(result).toEqual({ value });
+    });
+
+    it("rejects an empty (or whitespace-only) input", () => {
+      const setup = setupFor(0.1);
+      expect(validateGravitationVelocityInput("", setup)).toEqual({ error: "Enter a velocity." });
+      expect(validateGravitationVelocityInput("   ", setup)).toEqual({ error: "Enter a velocity." });
+    });
+
+    it("rejects non-numeric and non-finite input", () => {
+      const setup = setupFor(0.1);
+      expect(validateGravitationVelocityInput("fast", setup)).toEqual({ error: "Enter a valid number." });
+      expect(validateGravitationVelocityInput("NaN", setup)).toEqual({ error: "Enter a valid number." });
+      expect(validateGravitationVelocityInput("Infinity", setup)).toEqual({ error: "Enter a valid number." });
+    });
+
+    it("rejects a value below minVelocity or above maxVelocity, without clamping it into range", () => {
+      const setup = setupFor(0.1);
+      const belowMin = setup.minVelocity - 1;
+      const aboveMax = setup.maxVelocity + 1;
+      expect(validateGravitationVelocityInput(String(belowMin), setup)).toEqual({
+        error: `Enter a value between ${setup.minVelocity.toFixed(2)} and ${setup.maxVelocity.toFixed(2)} m/s.`,
+      });
+      expect(validateGravitationVelocityInput(String(aboveMax), setup)).toEqual({
+        error: `Enter a value between ${setup.minVelocity.toFixed(2)} and ${setup.maxVelocity.toFixed(2)} m/s.`,
+      });
+    });
+
+    it("accepts the exact minVelocity and maxVelocity boundary values", () => {
+      const setup = setupFor(0.1);
+      expect(validateGravitationVelocityInput(String(setup.minVelocity), setup)).toEqual({ value: setup.minVelocity });
+      expect(validateGravitationVelocityInput(String(setup.maxVelocity), setup)).toEqual({ value: setup.maxVelocity });
     });
   });
 });

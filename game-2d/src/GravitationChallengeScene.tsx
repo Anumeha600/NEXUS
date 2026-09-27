@@ -33,7 +33,7 @@ import {
   areGravitationControlsLocked,
   gravitationOutcomeExplanation,
   gravitationUnsupportedPlayerMessage,
-  velocitySliderPercent,
+  validateGravitationVelocityInput,
 } from "./gravitationChallenge";
 import { recordGravitationAttempt, type GravitationAttemptResult } from "./gravitationLearning";
 
@@ -113,6 +113,11 @@ export default function GravitationChallengeScene() {
   const setup = useMemo(() => gravitationSimSetupFor(challenge), [challenge]);
   const [playState, setPlayState] = useState(() => createGravitationPlayState(setup));
   const [attemptResult, setAttemptResult] = useState<GravitationAttemptResult | null>(null);
+  // The manually-typed velocity, as raw text - the single source of truth
+  // for the input (see the manual-velocity-input UX change). Kept separate
+  // from playState.velocity (a number) so an in-progress keystroke like "3."
+  // or an empty field never has to be coerced into a number just to render.
+  const [velocityText, setVelocityText] = useState(() => String(setup.defaultInitialVelocity));
 
   const sessionIdRef = useRef(newGravitationSessionId());
   const attemptNumberRef = useRef(0);
@@ -128,27 +133,46 @@ export default function GravitationChallengeScene() {
   useEffect(() => {
     setPlayState(createGravitationPlayState(setup));
     setAttemptResult(null);
+    setVelocityText(String(setup.defaultInitialVelocity));
     readyShownAtRef.current = performance.now();
   }, [setup]);
 
   const controlsLocked = areGravitationControlsLocked(playState);
   const isGravitationalForce = challenge.conceptId === CONCEPT_GRAVITATIONAL_FORCE;
 
-  // Reference velocities for the slider's own markers and the outcome
-  // feedback - always derivable from setup.starMass/orbitalRadius via the
-  // same physics.ts formulas the adaptive engine itself used, regardless of
-  // which field a given tier happened to hide.
+  // Reference velocities for the outcome feedback and the reference readout
+  // below the input - always derivable from setup.starMass/orbitalRadius via
+  // the same physics.ts formulas the adaptive engine itself used, regardless
+  // of which field a given tier happened to hide.
   const vOrbit = useMemo(() => orbitalVelocity(GRAVITY_SIM_G, setup.starMass, setup.orbitalRadius), [setup]);
   const vEscape = useMemo(() => escapeVelocity(GRAVITY_SIM_G, setup.starMass, setup.orbitalRadius), [setup]);
 
+  const velocityValidation = useMemo(() => validateGravitationVelocityInput(velocityText, setup), [velocityText, setup]);
+  const velocityError = "error" in velocityValidation ? velocityValidation.error : null;
+
+  // Live-previews the typed velocity on the (still idle) scene as soon as
+  // it's a valid, in-range number - the same feel the old slider had - but
+  // never pushes a non-finite or out-of-range value into play state, so the
+  // simulation prop is always a real number even mid-keystroke.
+  function handleVelocityTextChange(text: string) {
+    setVelocityText(text);
+    const validation = validateGravitationVelocityInput(text, setup);
+    if ("value" in validation) {
+      setPlayState((prev) => setGravitationVelocity(prev, validation.value));
+    }
+  }
+
   function handleLaunch() {
+    if (playState.phase !== "READY" || velocityError !== null) return;
+    const { value } = velocityValidation as { value: number };
     pendingResponseTimeRef.current = (performance.now() - readyShownAtRef.current) / 1000;
-    setPlayState((prev) => launchGravitationAttempt(prev));
+    setPlayState((prev) => launchGravitationAttempt(setGravitationVelocity(prev, value)));
   }
 
   function handleReset() {
     setPlayState((prev) => resetGravitationAttempt(prev, setup));
     setAttemptResult(null);
+    setVelocityText(String(setup.defaultInitialVelocity));
     readyShownAtRef.current = performance.now();
   }
 
@@ -209,57 +233,50 @@ export default function GravitationChallengeScene() {
       </div>
 
       <div className="rounded-3xl border border-border bg-white p-5 shadow-sm">
-        <div className="flex items-center justify-between">
-          <label htmlFor="gravitation-velocity" className="text-xs font-bold tracking-widest text-ink-muted uppercase">
-            Initial velocity
-          </label>
-          <span className="font-display text-lg font-extrabold text-ink">{playState.velocity.toFixed(2)} m/s</span>
-        </div>
+        <label htmlFor="gravitation-velocity" className="text-xs font-bold tracking-widest text-ink-muted uppercase">
+          Initial velocity
+        </label>
 
-        <div className="relative mt-3">
-          <input
-            id="gravitation-velocity"
-            type="range"
-            min={setup.minVelocity}
-            max={setup.maxVelocity}
-            step={0.01}
-            value={playState.velocity}
-            disabled={controlsLocked}
-            onChange={(e) => setPlayState((prev) => setGravitationVelocity(prev, Number(e.target.value)))}
-            className="w-full accent-purple disabled:opacity-50"
-          />
-          <div className="pointer-events-none relative mt-1 h-8 w-full text-[9px] font-bold uppercase">
-            <span
-              className="absolute -translate-x-1/2 text-blue-dark"
-              style={{ left: `${velocitySliderPercent(setup.minVelocity, setup.maxVelocity, vOrbit)}%` }}
-            >
-              &#9650;
-              <br />
-              orbit
-            </span>
-            <span
-              className="absolute -translate-x-1/2 text-gold-dark"
-              style={{ left: `${velocitySliderPercent(setup.minVelocity, setup.maxVelocity, vEscape)}%` }}
-            >
-              &#9650;
-              <br />
-              escape
-            </span>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 rounded-xl border border-border bg-surface-lavender/40 px-3 py-2 focus-within:border-purple">
+            <input
+              id="gravitation-velocity"
+              type="text"
+              inputMode="decimal"
+              value={velocityText}
+              disabled={controlsLocked}
+              onChange={(e) => handleVelocityTextChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleLaunch();
+              }}
+              aria-invalid={velocityError !== null}
+              aria-describedby={velocityError ? "gravitation-velocity-error" : undefined}
+              className="w-28 bg-transparent text-center font-display text-lg font-extrabold text-ink outline-none disabled:opacity-60"
+            />
+            <span className="text-sm font-semibold text-ink-muted">m/s</span>
           </div>
-        </div>
-        <p className="mt-1 text-[11px] text-ink-muted">
-          Orbital velocity &asymp; {vOrbit.toFixed(2)} m/s &middot; Escape velocity &asymp; {vEscape.toFixed(2)} m/s
-        </p>
 
-        <div className="mt-4 flex flex-wrap items-center gap-3">
           <button
             type="button"
-            disabled={playState.phase !== "READY"}
+            disabled={playState.phase !== "READY" || velocityError !== null}
             onClick={handleLaunch}
             className="gradient-purple-blue inline-flex items-center justify-center gap-2 rounded-full px-6 py-2.5 text-sm font-bold text-white shadow-lg transition hover:opacity-90 disabled:pointer-events-none disabled:opacity-40"
           >
             Launch
           </button>
+        </div>
+
+        {velocityError && (
+          <p id="gravitation-velocity-error" className="mt-2 text-xs font-bold text-red">
+            {velocityError}
+          </p>
+        )}
+
+        <p className="mt-3 text-[11px] text-ink-muted">
+          Orbital velocity &asymp; {vOrbit.toFixed(2)} m/s &middot; Escape velocity &asymp; {vEscape.toFixed(2)} m/s
+        </p>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
           <button
             type="button"
             disabled={playState.phase !== "OUTCOME"}

@@ -257,3 +257,23 @@ export function velocitySliderPercent(min: number, max: number, value: number): 
   if (max <= min) return 0;
   return Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
 }
+
+// Validates the manual velocity input (see GravitationChallengeScene.tsx),
+// mirroring challengeLogic.ts's own validateInput() pattern used by the five
+// live modules' numeric control: a pure { value } | { error } result so the
+// component can gate Launch and show a message without re-deriving the rules
+// itself. Never clamps - an out-of-range or non-finite value is always an
+// error, not a silently adjusted number, so Launch always uses exactly what
+// the player typed.
+export type VelocityInputValidation = { value: number } | { error: string };
+
+export function validateGravitationVelocityInput(raw: string, setup: GravitationChallengeSetup): VelocityInputValidation {
+  const trimmed = raw.trim();
+  if (trimmed === "") return { error: "Enter a velocity." };
+  const value = Number(trimmed);
+  if (!Number.isFinite(value)) return { error: "Enter a valid number." };
+  if (value < setup.minVelocity || value > setup.maxVelocity) {
+    return { error: `Enter a value between ${setup.minVelocity.toFixed(2)} and ${setup.maxVelocity.toFixed(2)} m/s.` };
+  }
+  return { value };
+}

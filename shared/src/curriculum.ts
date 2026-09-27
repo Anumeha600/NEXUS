@@ -87,10 +87,10 @@ export interface ModuleInfo {
   // TOTAL_MODULES/TOTAL_CONCEPTS) - e.g. Gravitation & Orbits, whose game
   // runs its own standalone AdaptiveEngine instance outside MODULE_SEQUENCE
   // (see game-2d/src/adaptiveEngine.ts). Kept as a separate flag from
-  // `available` rather than repurposing it, so Play Hub can render it as its
-  // own distinct "Optional Lab" card (via OPTIONAL_LABS below) without ever
-  // inflating the site's adaptive-progression statistics. Never true at the
-  // same time as `available`.
+  // `available` rather than repurposing it, so Play Hub can render it as a
+  // normal Physics Lab card (via OPTIONAL_LABS below) without ever inflating
+  // the site's adaptive-progression statistics or requiring Learn-page lesson
+  // content ahead of the physics. Never true at the same time as `available`.
   optionalLab?: boolean;
 }
 
@@ -433,11 +433,10 @@ export const CURRICULUM: ModuleInfo[] = [
   },
 ];
 
-// The modules that actually have a working game behind them - what the
-// dashboard/curriculum-map UI should render as playable, and what the
-// headline "N Physics Modules" / "N Core Concepts" stats should count.
-// Deliberately excludes curriculum-only entries so the site never overstates
-// what NEXUS can do today.
+// The modules that make up the normal adaptive sequence - what the Learn
+// page's curriculum map should render, and what the "N Core Concepts" stat
+// should count. Deliberately excludes curriculum-only entries so the site
+// never overstates what NEXUS's adaptive engine can do today.
 export const AVAILABLE_MODULES: ModuleInfo[] = CURRICULUM.filter((m) => m.available);
 
 export const TOTAL_CONCEPTS = AVAILABLE_MODULES.reduce((sum, m) => sum + m.concepts.length, 0);
@@ -446,9 +445,18 @@ export const TOTAL_MODULES = AVAILABLE_MODULES.length;
 // Real, playable labs that sit outside the normal adaptive sequence (see
 // ModuleInfo.optionalLab) - never included in AVAILABLE_MODULES or its
 // derived TOTAL_MODULES/TOTAL_CONCEPTS, so the dashboard's adaptive-progress
-// statistics never change just because an optional lab exists. Play Hub
-// renders these as their own distinct section.
+// statistics never change just because an optional lab exists. Play Hub's
+// "Physics Labs" grid renders these alongside AVAILABLE_MODULES as normal
+// lab cards (see PlayHub.tsx's PHYSICS_LAB_MODULES).
 export const OPTIONAL_LABS: ModuleInfo[] = CURRICULUM.filter((m) => m.optionalLab);
+
+// The total count of real, playable lab cards across the whole product -
+// AVAILABLE_MODULES (the 5-module adaptive sequence) plus OPTIONAL_LABS
+// (real games outside it, e.g. Gravitation & Orbits). This is what the
+// dashboard's "N Physics Labs" headline/stat should count - deliberately
+// kept separate from TOTAL_MODULES, which stays scoped to the adaptive
+// sequence alone and must never be inflated by an optional lab.
+export const TOTAL_PHYSICS_LABS = AVAILABLE_MODULES.length + OPTIONAL_LABS.length;
 
 export function moduleById(id: string): ModuleInfo | undefined {
   return CURRICULUM.find((m) => m.id === id);

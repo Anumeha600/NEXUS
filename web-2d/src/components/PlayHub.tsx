@@ -7,8 +7,18 @@ import ModuleArtwork from "@/components/ModuleArtwork";
 
 // "Coming soon" is only for modules with no working game at all - an
 // optional lab (a real game, just outside the normal adaptive sequence -
-// see OPTIONAL_LABS) gets its own section below instead.
+// see OPTIONAL_LABS) renders as a normal Physics Lab card below instead.
 const UNAVAILABLE_MODULES = CURRICULUM.filter((m) => !m.available && !m.optionalLab);
+
+// The Physics Labs grid: every module with a real, working game behind it,
+// in curriculum order - AVAILABLE_MODULES (the five in the normal adaptive
+// sequence) followed by OPTIONAL_LABS (real games that live outside that
+// sequence, e.g. Gravitation & Orbits - see curriculum.ts's ModuleInfo.
+// optionalLab doc comment). This only changes how Play Hub *presents* those
+// modules - it never touches `available`/`optionalLab` themselves, so
+// TOTAL_MODULES/TOTAL_CONCEPTS, the adaptive MODULE_SEQUENCE, and the Learn
+// page's lesson-content requirement stay exactly as they were.
+const PHYSICS_LAB_MODULES = [...AVAILABLE_MODULES, ...OPTIONAL_LABS];
 
 // The default journey a fresh AdaptiveEngine() opens on (see
 // game-2d/src/adaptiveEngine.ts and curriculum.test.ts) - what "Start
@@ -111,7 +121,7 @@ export default function PlayHub() {
       <div>
         <h2 className="text-center font-display text-xl font-bold text-ink sm:text-2xl">Physics Labs</h2>
         <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {AVAILABLE_MODULES.map((mod, i) => (
+          {PHYSICS_LAB_MODULES.map((mod, i) => (
             <div
               key={mod.id}
               className={`glass-card group flex flex-col overflow-hidden rounded-3xl ring-1 ${mod.theme.ring} transition hover:-translate-y-1`}
@@ -163,50 +173,6 @@ export default function PlayHub() {
           </div>
         )}
       </div>
-
-      {OPTIONAL_LABS.length > 0 && (
-        <div>
-          <h2 className="text-center font-display text-xl font-bold text-ink sm:text-2xl">Optional Labs</h2>
-          <p className="mx-auto mt-2 max-w-xl text-center text-sm text-ink-muted">
-            Extra experiments outside your adaptive journey - play anytime, at your own pace.
-          </p>
-          <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {OPTIONAL_LABS.map((mod) => (
-              <div
-                key={mod.id}
-                className={`glass-card group relative flex flex-col overflow-hidden rounded-3xl ring-1 ${mod.theme.ring} transition hover:-translate-y-1`}
-              >
-                <span className="absolute top-3 right-3 z-10 rounded-full bg-white/90 px-3 py-1 text-[10px] font-bold tracking-wide text-purple uppercase shadow-sm">
-                  Optional Lab
-                </span>
-                <div className="h-36 w-full overflow-hidden sm:h-40">
-                  <ModuleArtwork moduleId={mod.id} className="h-full w-full transition duration-300 group-hover:scale-[1.02]" />
-                </div>
-
-                <div className="flex flex-1 flex-col p-6">
-                  <div className={`h-1.5 w-16 rounded-full bg-gradient-to-r ${mod.theme.accent}`} />
-                  <h3 className="mt-4 font-display text-lg font-bold text-ink">{mod.title}</h3>
-                  <p className="mt-1 text-xs font-bold tracking-wide text-ink-muted uppercase">{mod.tagline}</p>
-                  <p className="mt-3 text-sm text-ink-muted">{mod.description}</p>
-                  <ul className="mt-4 flex flex-wrap gap-2">
-                    {mod.concepts.map((c) => (
-                      <li key={c.id} className={`rounded-full px-3 py-1 text-xs font-semibold ${mod.theme.chip}`}>
-                        {c.title}
-                      </li>
-                    ))}
-                  </ul>
-                  <Link
-                    href={playRouteFor(mod.id) ?? "/play"}
-                    className="gradient-purple-blue mt-6 inline-flex items-center justify-center gap-1.5 rounded-full px-5 py-2.5 text-sm font-bold text-white transition group-hover:opacity-90"
-                  >
-                    Play Lab <span aria-hidden="true">→</span>
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="mx-auto w-full max-w-2xl rounded-3xl border border-border bg-white p-6 text-center">
         <p className="text-xs font-bold tracking-[0.15em] text-purple uppercase">Nexus Adaptive Mode</p>
