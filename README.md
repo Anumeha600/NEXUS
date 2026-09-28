@@ -1,10 +1,5 @@
-<p align="center">
-  <img
-    src="./assets/nexus-dashboard.png"
-    alt="NEXUS Adaptive Physics Learning Lab"
-    width="100%"
-  />
-</p>
+![Uploading image.png…]()
+
 
 # NEXUS
 
