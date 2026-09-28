@@ -1,3 +1,11 @@
+<p align="center">
+  <img
+    src="./assets/nexus-dashboard.png"
+    alt="NEXUS Adaptive Physics Learning Lab"
+    width="100%"
+  />
+</p>
+
 # NEXUS
 
 ### AI-Powered Adaptive Physics Learning Game
