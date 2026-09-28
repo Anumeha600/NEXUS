@@ -15,3 +15,8 @@ export * from "./wavesLearning";
 export type { WavesSceneProps } from "./WavesScene";
 export { default as WavesScene } from "./WavesScene";
 export { default as WavesChallengeScene } from "./WavesChallengeScene";
+export * from "./archimedesPhysics";
+export * from "./archimedesChallenge";
+export type { ArchimedesSceneProps } from "./ArchimedesScene";
+export { default as ArchimedesScene } from "./ArchimedesScene";
+export { default as ArchimedesChallengeScene } from "./ArchimedesChallengeScene";
