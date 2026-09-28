@@ -1,4 +1,4 @@
-![Uploading image.png…]()
+<img width="1600" height="1187" alt="image (1)" src="https://github.com/user-attachments/assets/917c854a-73b5-4428-8873-1c00239605b1" />
 
 
 # NEXUS
