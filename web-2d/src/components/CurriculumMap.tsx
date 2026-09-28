@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { AVAILABLE_MODULES, hasLesson, type ConceptInfo, type ModuleTheme } from "@nexus/shared";
+import { AVAILABLE_MODULES, OPTIONAL_LABS, hasLesson, type ConceptInfo, type ModuleTheme } from "@nexus/shared";
 import ConceptLessonPanel from "./ConceptLessonPanel";
 
 // This maps a module's index to the same badge/ring styling the old
@@ -16,11 +16,19 @@ const BADGE_STYLES = [
   { color: "bg-gold-dark", ring: "border-gold/40" },
 ];
 
-// Only modules with a working game behind them belong on this map - a
-// curriculum-only entry (available: false) has no lesson to actually walk
-// through yet, so showing it here would be exactly the "claims to work but
-// doesn't" placeholder this product avoids.
-const MODULES = AVAILABLE_MODULES.map((mod, i) => ({
+// Every real, playable module belongs on this map - a curriculum-only entry
+// (available: false, no optionalLab, e.g. Waves) has no lesson to actually
+// walk through yet, so showing it here would be the "claims to work but
+// doesn't" placeholder this product avoids. This is the same "real playable
+// labs, in curriculum order" concept PlayHub.tsx/PhysicsJourney.tsx already
+// use - AVAILABLE_MODULES (the 5-module adaptive sequence) followed by
+// OPTIONAL_LABS (real games outside that sequence, e.g. Gravitation &
+// Orbits). Every module here has full lesson content on every concept (see
+// curriculum.ts's ConceptInfo doc comment and curriculum.test.ts), so every
+// concept row below is clickable through the exact same mechanism -
+// Gravitation's concepts open the same ConceptLessonPanel as any other
+// module's, with no module-level "play" affordance needed on this page.
+const LEARN_MODULES = [...AVAILABLE_MODULES, ...OPTIONAL_LABS].map((mod, i) => ({
   id: mod.id,
   name: mod.title,
   concepts: mod.concepts,
@@ -39,7 +47,7 @@ export default function CurriculumMap() {
   const [selected, setSelected] = useState<SelectedConcept | null>(null);
   const lastFocusedRef = useRef<HTMLButtonElement | null>(null);
 
-  function openConcept(button: HTMLButtonElement, mod: (typeof MODULES)[number], concept: ConceptInfo) {
+  function openConcept(button: HTMLButtonElement, mod: (typeof LEARN_MODULES)[number], concept: ConceptInfo) {
     if (!hasLesson(concept)) return;
     lastFocusedRef.current = button;
     setSelected({ moduleId: mod.id, moduleTitle: mod.name, concept, theme: mod.theme });
@@ -68,7 +76,7 @@ export default function CurriculumMap() {
         </div>
 
         <div className="mt-12 flex flex-col items-center">
-          {MODULES.map((mod, i) => (
+          {LEARN_MODULES.map((mod, i) => (
             <div key={mod.name} className="flex w-full flex-col items-center">
               <div
                 className={`card-elevated w-full max-w-md rounded-2xl border-2 bg-white p-6 ${mod.badge.ring}`}
@@ -117,7 +125,7 @@ export default function CurriculumMap() {
                 </ul>
               </div>
 
-              {i < MODULES.length - 1 && (
+              {i < LEARN_MODULES.length - 1 && (
                 <div className="my-2 flex h-10 flex-col items-center justify-center text-ink-muted/50">
                   <div className="h-full w-0.5 bg-border" />
                   <span className="-mt-1">↓</span>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MODULE_PROJECTILE, MODULE_NEWTON, MODULE_WORK_ENERGY, MODULE_MOMENTUM, MODULE_CIRCULAR, MODULE_GRAVITATION, type Challenge } from "./adaptiveEngine";
+import { MODULE_PROJECTILE, MODULE_NEWTON, MODULE_WORK_ENERGY, MODULE_MOMENTUM, MODULE_CIRCULAR, MODULE_GRAVITATION, MODULE_WAVES, type Challenge } from "./adaptiveEngine";
 import { actionLabelFor } from "./challengeLogic";
 
 interface HelpContent {
@@ -75,6 +75,21 @@ const HELP_CONTENT: Record<string, HelpContent> = {
       "Interpret the result: too little velocity falls into the star, orbital velocity gives a bounded orbit, an intermediate velocity gives an elliptical orbit, and a high enough velocity escapes.",
     physicsTip: "Orbital velocity v = √(GM/r); escape velocity v = √(2GM/r) - always √2 times faster than a circular orbit at the same distance.",
   },
+  // Wave Motion is not yet reachable through GameCanvas.tsx/MODULE_SEQUENCE
+  // either (see adaptiveEngine.ts's MODULE_WAVES) - its own standalone
+  // WavesChallengeScene renders this same shared HowToPlay component. Its
+  // real action label is always "Submit" (see WavesChallengeScene.tsx's own
+  // button) - actionLabelFor has no Wave Motion case, so this is hardcoded
+  // directly below exactly like Gravitation's "Launch" is, not left to fall
+  // through to actionLabelFor's unrelated default.
+  [MODULE_WAVES]: {
+    description: "Shape a traveling wave and connect its amplitude, frequency, wavelength, and speed - then observe how two waves combine.",
+    readStep: "Choose/set the wave parameters shown in the controls.",
+    adjustStep: "Observe how amplitude, frequency, and wavelength each affect the wave, and use the displayed v = fλ relationship.",
+    observeStep: "For superposition challenges, observe how the two component waves combine into the resultant.",
+    confirmStep: "Submit the required answer when the challenge asks for one.",
+    physicsTip: "Wave speed connects frequency and wavelength: v = fλ, and overlapping waves combine by simple superposition: y = y₁ + y₂.",
+  },
 };
 
 // Every currently playable module must have an entry above - this is what a
@@ -95,7 +110,7 @@ export default function HowToPlay({ challenge, belowFullscreenButton }: { challe
   // GameCanvas.tsx/challengeLogic.ts - gravitation's own button says
   // "Launch", not whatever unrelated default actionLabelFor would fall
   // through to for an unrecognized moduleId/conceptId.
-  const actionWord = challenge.moduleId === MODULE_GRAVITATION ? "Launch" : actionLabelFor(challenge);
+  const actionWord = challenge.moduleId === MODULE_GRAVITATION ? "Launch" : challenge.moduleId === MODULE_WAVES ? "Submit" : actionLabelFor(challenge);
 
   return (
     <>

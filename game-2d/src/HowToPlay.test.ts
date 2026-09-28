@@ -8,7 +8,7 @@
 // silently shows a "?" button with nothing behind it.
 // --------------------------------------------------------------------------
 import { describe, it, expect } from "vitest";
-import { MODULE_PROJECTILE, MODULE_NEWTON, MODULE_WORK_ENERGY, MODULE_MOMENTUM, MODULE_CIRCULAR, MODULE_GRAVITATION } from "./adaptiveEngine";
+import { MODULE_PROJECTILE, MODULE_NEWTON, MODULE_WORK_ENERGY, MODULE_MOMENTUM, MODULE_CIRCULAR, MODULE_GRAVITATION, MODULE_WAVES } from "./adaptiveEngine";
 import { hasHowToPlayContent } from "./HowToPlay";
 
 const PLAYABLE_MODULES = [MODULE_PROJECTILE, MODULE_NEWTON, MODULE_WORK_ENERGY, MODULE_MOMENTUM, MODULE_CIRCULAR];
@@ -50,5 +50,12 @@ describe("HowToPlay content", () => {
   // content must exist too.
   it("Gravitation & Orbits has help content, for its standalone GravitationChallengeScene", () => {
     expect(hasHowToPlayContent(MODULE_GRAVITATION)).toBe(true);
+  });
+
+  // Wave Motion is not in PLAYABLE_MODULES either, for the same reason as
+  // Gravitation - its own standalone WavesChallengeScene renders this shared
+  // component, so its content must exist too.
+  it("Wave Motion has help content, for its standalone WavesChallengeScene", () => {
+    expect(hasHowToPlayContent(MODULE_WAVES)).toBe(true);
   });
 });

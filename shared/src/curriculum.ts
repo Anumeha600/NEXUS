@@ -46,11 +46,12 @@ export interface ConceptInfo {
   title: string;
   description: string;
   // Lesson content for the Learn page's concept panel - optional because a
-  // curriculum-only concept (its module has `available: false`, e.g.
-  // Gravitation, Waves) has no implemented physics to describe yet, and
+  // genuinely curriculum-only concept (its module has `available: false` AND
+  // `optionalLab` unset) has no implemented physics to describe yet, and
   // inventing one here would let the Learn page promise a lesson the game
-  // can't back up. Every concept belonging to an `available: true` module
-  // must have all four fields set - see hasLesson() below and
+  // can't back up. Every concept belonging to an `available: true` module, or
+  // to an `optionalLab` module whose physics IS implemented (e.g. Gravitation,
+  // Waves), must have all four fields set - see hasLesson() below and
   // curriculum.test.ts for the invariant that enforces this.
   formula?: string;
   variables?: ConceptVariable[];
@@ -264,13 +265,14 @@ export const CURRICULUM: ModuleInfo[] = [
   },
   // Momentum & Collisions (Phase 2) and Circular Motion (Phase 3) are fully
   // implemented - see game-2d/src/adaptiveEngine.ts's MODULE_MOMENTUM and
-  // MODULE_CIRCULAR. Gravitation and Waves below are still curriculum-only:
-  // registered so their place in the learning sequence is real, but with no
-  // engineModuleId and no game behind them yet. Each becomes `available: true`
-  // (and gains an engineModuleId) only once its own phase actually implements
-  // its physics, challenge generator, and experiment simulation. Theme colors
-  // here are placeholders from the existing palette pending each module's own
-  // visual polish pass.
+  // MODULE_CIRCULAR. Gravitation and Waves below are still `available: false`
+  // and have no `engineModuleId` - neither is part of the normal 5-module
+  // MODULE_SEQUENCE in adaptiveEngine.ts. Each does have a real, working
+  // standalone game and its own AdaptiveEngine instance today, though, so
+  // each is exposed instead as an `optionalLab` (see ModuleInfo.optionalLab
+  // and OPTIONAL_LABS below) rather than waiting on a future phase that would
+  // fold it into the adaptive sequence. Theme colors here are placeholders
+  // from the existing palette pending each module's own visual polish pass.
   {
     id: "momentum",
     engineModuleId: "momentum_collisions",
@@ -405,16 +407,75 @@ export const CURRICULUM: ModuleInfo[] = [
     tagline: "Gravity • Orbits • Escape Velocity",
     description: "Place a satellite in orbit and explore the gravity that holds it there.",
     concepts: [
-      { id: "gravitational_force", title: "Gravitational Force", description: "Explore how mass and distance determine the gravitational pull between two bodies." },
-      { id: "orbital_velocity", title: "Orbital Velocity", description: "Find the speed needed to keep a satellite in a stable orbit." },
-      { id: "escape_velocity", title: "Escape Velocity", description: "Determine the speed needed to escape a planet's gravity entirely." },
+      {
+        id: "gravitational_force",
+        title: "Gravitational Force",
+        description: "Explore how mass and distance determine the gravitational pull between two bodies.",
+        formula: "F = GMm / r²",
+        variables: [
+          { symbol: "F", meaning: "Gravitational force (N)" },
+          { symbol: "G", meaning: "Gravitational constant" },
+          { symbol: "M", meaning: "Mass of the central star (kg)" },
+          { symbol: "m", meaning: "Mass of the orbiting planet (kg)" },
+          { symbol: "r", meaning: "Distance between their centers (m)" },
+        ],
+        keyIdea: "Gravitational force decreases with the square of distance and provides the inward force that can maintain an orbit.",
+        example: {
+          given: ["G = 1 (simulation units)", "M = 100 (star mass)", "m = 2 (planet mass)", "r = 10 m"],
+          calculate: "F = GMm / r²",
+          solution: "F = (1 × 100 × 2) / 10² = 2 N",
+        },
+      },
+      {
+        id: "orbital_velocity",
+        title: "Orbital Velocity",
+        description: "Find the speed needed to keep a satellite in a stable orbit.",
+        formula: "v = √(GM / r)",
+        variables: [
+          { symbol: "v", meaning: "Circular orbital velocity (m/s)" },
+          { symbol: "G", meaning: "Gravitational constant" },
+          { symbol: "M", meaning: "Mass of the central star (kg)" },
+          { symbol: "r", meaning: "Orbital radius (m)" },
+        ],
+        keyIdea: "At the correct circular orbital velocity, gravity supplies the centripetal force required for a stable circular orbit.",
+        example: {
+          given: ["G = 1 (simulation units)", "M = 100 (star mass)", "r = 25 m"],
+          calculate: "v = √(GM / r)",
+          solution: "v = √(100 / 25) = √4 = 2 m/s",
+        },
+      },
+      {
+        id: "escape_velocity",
+        title: "Escape Velocity",
+        description: "Determine the speed needed to escape a planet's gravity entirely.",
+        formula: "v = √(2GM / r)",
+        variables: [
+          { symbol: "v", meaning: "Escape velocity (m/s)" },
+          { symbol: "G", meaning: "Gravitational constant" },
+          { symbol: "M", meaning: "Mass of the central star (kg)" },
+          { symbol: "r", meaning: "Distance from the star's center (m)" },
+        ],
+        keyIdea: "Escape velocity is the minimum initial speed needed for an object to escape the body's gravitational field without additional propulsion, under the idealized model used here.",
+        example: {
+          given: ["G = 1 (simulation units)", "M = 50 (star mass)", "r = 25 m"],
+          calculate: "v = √(2GM / r)",
+          solution: "v = √(2 × 50 / 25) = √4 = 2 m/s",
+        },
+      },
     ],
     theme: { accent: "from-blue to-purple", ring: "ring-blue/20", chip: "bg-blue/10 text-blue-dark" },
     available: false,
     // A real, working game exists (see game-2d/src/GravitationChallengeScene)
     // but its AdaptiveEngine runs standalone, outside MODULE_SEQUENCE - it
     // is intentionally not part of the normal adaptive journey, so it's
-    // exposed as an optional lab rather than flipping `available`.
+    // exposed as an optional lab rather than flipping `available`. Its three
+    // concepts DO have full Learn-page lesson content (formula/variables/
+    // keyIdea/example, using the same simulation-scale G=1 terminology as
+    // GravitationFormulaCard in-game) despite `available: false` - see
+    // hasLesson() and curriculum.test.ts's "optional labs" describe block for
+    // why that's the deliberate exception, not an oversight: Gravitation's
+    // physics (and, below, Wave Motion's) is fully implemented, even though
+    // neither is part of the normal adaptive sequence.
     optionalLab: true,
   },
   {
@@ -423,13 +484,88 @@ export const CURRICULUM: ModuleInfo[] = [
     tagline: "Amplitude • Frequency • Wave Speed",
     description: "Generate a wave and connect its amplitude, frequency, and speed.",
     concepts: [
-      { id: "amplitude", title: "Amplitude / Wave Properties", description: "Explore how amplitude relates to a wave's energy and displacement." },
-      { id: "frequency_wavelength", title: "Frequency & Wavelength", description: "Connect a wave's frequency and wavelength through its speed." },
-      { id: "wave_speed", title: "Wave Speed", description: "Explore how wave speed relates to frequency and wavelength." },
-      { id: "superposition", title: "Superposition / Interference", description: "See how overlapping waves combine through superposition and interference." },
+      {
+        id: "amplitude",
+        title: "Amplitude / Wave Properties",
+        description: "Explore how amplitude relates to a wave's energy and displacement.",
+        formula: "y(x,t) = A sin(kx − ωt + φ)",
+        variables: [
+          { symbol: "y", meaning: "Displacement from equilibrium (m)" },
+          { symbol: "A", meaning: "Amplitude - the maximum displacement (m)" },
+          { symbol: "k", meaning: "Wave number (rad/m)" },
+          { symbol: "ω", meaning: "Angular frequency (rad/s)" },
+          { symbol: "φ", meaning: "Phase offset (rad)" },
+        ],
+        keyIdea: "Amplitude is the wave's maximum displacement from equilibrium, read directly off the peak of the curve - it sets the wave's energy but never affects its frequency, wavelength, or speed.",
+        example: {
+          given: ["A = 1.2 m"],
+          calculate: "y_max = A",
+          solution: "y_max = 1.2 m - the curve peaks 1.2 m above equilibrium.",
+        },
+      },
+      {
+        id: "frequency_wavelength",
+        title: "Frequency & Wavelength",
+        description: "Connect a wave's frequency and wavelength through its speed.",
+        formula: "f = 1 / T",
+        variables: [
+          { symbol: "f", meaning: "Frequency (Hz)" },
+          { symbol: "T", meaning: "Period - time for one full oscillation (s)" },
+          { symbol: "λ", meaning: "Wavelength - distance between successive crests (m)" },
+        ],
+        keyIdea: "Frequency and period are reciprocals of each other, while wavelength is measured directly as the distance between two successive crests.",
+        example: {
+          given: ["T = 0.5 s"],
+          calculate: "f = 1 / T",
+          solution: "f = 1 / 0.5 = 2 Hz",
+        },
+      },
+      {
+        id: "wave_speed",
+        title: "Wave Speed",
+        description: "Explore how wave speed relates to frequency and wavelength.",
+        formula: "v = fλ",
+        variables: [
+          { symbol: "v", meaning: "Wave speed (m/s)" },
+          { symbol: "f", meaning: "Frequency (Hz)" },
+          { symbol: "λ", meaning: "Wavelength (m)" },
+        ],
+        keyIdea: "Wave speed is the product of frequency and wavelength - for a fixed speed, raising the frequency lowers the wavelength, and vice versa.",
+        example: {
+          given: ["f = 2 Hz", "λ = 1.5 m"],
+          calculate: "v = fλ",
+          solution: "v = 2 × 1.5 = 3 m/s",
+        },
+      },
+      {
+        id: "superposition",
+        title: "Superposition / Interference",
+        description: "See how overlapping waves combine through superposition and interference.",
+        formula: "y = y₁ + y₂",
+        variables: [
+          { symbol: "y", meaning: "Resultant displacement (m)" },
+          { symbol: "y₁, y₂", meaning: "Displacement of each individual wave (m)" },
+        ],
+        keyIdea: "Overlapping waves simply add their displacements: matching phase gives full constructive reinforcement (amplitudes add), while a phase difference of π gives full destructive cancellation (amplitudes subtract).",
+        example: {
+          given: ["A₁ = 1 m", "A₂ = 0.7 m", "phase difference = 0 (constructive)"],
+          calculate: "A_total = √(A₁² + A₂² + 2A₁A₂cos(Δφ))",
+          solution: "A_total = √(1 + 0.49 + 1.4) = √2.89 = 1.7 m",
+        },
+      },
     ],
     theme: { accent: "from-cyan to-purple", ring: "ring-cyan/20", chip: "bg-cyan/10 text-blue-dark" },
     available: false,
+    // Same optional-lab pattern as Gravitation above: a real, working game
+    // exists (game-2d/src/WavesChallengeScene, wired to its own standalone
+    // `new AdaptiveEngine(MODULE_WAVES)` instance - see adaptiveEngine.ts's
+    // MODULE_WAVES and wavesLearning.ts's recordWaveAttempt), so this is
+    // exposed as a Physics Lab rather than left waiting on a future phase
+    // that would fold it into the normal 5-module adaptive sequence. Its 4
+    // concepts get full Learn-page lesson content for the same reason
+    // Gravitation's do - see hasLesson() and curriculum.test.ts's "optional
+    // labs" describe block.
+    optionalLab: true,
   },
 ];
 

@@ -233,11 +233,29 @@ describe("Learn page concept lesson content", () => {
     }
   });
 
-  it("every concept in a curriculum-only (not yet available) module has no lesson content - nothing is invented ahead of the physics", () => {
+  it("every concept in a genuinely curriculum-only module (not available, not an optional lab) has no lesson content - nothing is invented ahead of the physics", () => {
+    // Vacuous today: Gravitation and Waves (the only 2 modules with
+    // `available: false`) are both optional labs with real physics behind
+    // them, so no module currently falls into this bucket - but the
+    // invariant still holds for whatever the next curriculum-only module
+    // (e.g. a future Module 8) turns out to be.
     for (const mod of CURRICULUM) {
-      if (mod.available) continue;
+      if (mod.available || mod.optionalLab) continue;
       for (const concept of mod.concepts) {
         expect(hasLesson(concept), `${mod.id}/${concept.id} should NOT have lesson content yet`).toBe(false);
+      }
+    }
+  });
+
+  // Gravitation and Waves are both `available: false` (outside the adaptive
+  // sequence - see optionalLab) but their physics IS fully implemented, so
+  // unlike a genuinely curriculum-only module, both get full lesson content -
+  // this is the deliberate exception the test above excludes via
+  // `mod.optionalLab`.
+  it("every concept in an optional lab with real physics (Gravitation, Wave Motion) has full lesson content, same as an available module", () => {
+    for (const mod of OPTIONAL_LABS) {
+      for (const concept of mod.concepts) {
+        expect(hasLesson(concept), `${mod.id}/${concept.id} should have lesson content`).toBe(true);
       }
     }
   });
@@ -283,6 +301,23 @@ describe("Learn page concept lesson content", () => {
     }
   });
 
+  it("every optional-lab concept's formula, key idea, variables, and example are all non-empty (same shape as an available module's)", () => {
+    for (const mod of OPTIONAL_LABS) {
+      for (const concept of mod.concepts) {
+        expect(concept.formula).toBeTruthy();
+        expect(concept.keyIdea).toBeTruthy();
+        expect(concept.variables && concept.variables.length).toBeGreaterThan(0);
+        for (const v of concept.variables ?? []) {
+          expect(v.symbol).toBeTruthy();
+          expect(v.meaning).toBeTruthy();
+        }
+        expect(concept.example?.given.length).toBeGreaterThan(0);
+        expect(concept.example?.calculate).toBeTruthy();
+        expect(concept.example?.solution).toBeTruthy();
+      }
+    }
+  });
+
   it("every concept belongs to a module that moduleById can resolve", () => {
     for (const mod of CURRICULUM) {
       for (const concept of mod.concepts) {
@@ -297,26 +332,27 @@ describe("Learn page concept lesson content", () => {
     }
   });
 
-  it("playRouteFor also maps Gravitation - an optional lab with a real game, kept outside the normal available/adaptive-sequence set", () => {
+  it("playRouteFor also maps Gravitation and Waves - optional labs with a real game, kept outside the normal available/adaptive-sequence set", () => {
     expect(playRouteFor("gravitation")).toBe("/play?module=gravitation");
+    expect(playRouteFor("waves")).toBe("/play?module=waves");
   });
 
   it("playRouteFor refuses to present a curriculum-only module (no game at all) or an unrecognized module as playable", () => {
-    for (const id of ["waves", "not-a-real-module"]) {
-      expect(playRouteFor(id)).toBeUndefined();
-    }
+    expect(playRouteFor("not-a-real-module")).toBeUndefined();
   });
 });
 
 describe("optional labs (a real game outside the normal adaptive sequence)", () => {
-  it("Gravitation is marked as an optional lab, not as part of the normal available/adaptive-sequence set", () => {
-    const mod = moduleById("gravitation");
-    expect(mod?.optionalLab).toBe(true);
-    expect(mod?.available).toBe(false);
+  it("Gravitation and Waves are marked as optional labs, not as part of the normal available/adaptive-sequence set", () => {
+    for (const id of ["gravitation", "waves"]) {
+      const mod = moduleById(id);
+      expect(mod?.optionalLab).toBe(true);
+      expect(mod?.available).toBe(false);
+    }
   });
 
-  it("OPTIONAL_LABS contains exactly Gravitation, and never overlaps with AVAILABLE_MODULES", () => {
-    expect(OPTIONAL_LABS.map((m) => m.id)).toEqual(["gravitation"]);
+  it("OPTIONAL_LABS contains exactly Gravitation and Waves, in curriculum order, and never overlaps with AVAILABLE_MODULES", () => {
+    expect(OPTIONAL_LABS.map((m) => m.id)).toEqual(["gravitation", "waves"]);
     for (const mod of OPTIONAL_LABS) {
       expect(AVAILABLE_MODULES.some((m) => m.id === mod.id)).toBe(false);
     }

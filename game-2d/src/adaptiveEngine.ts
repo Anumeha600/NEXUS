@@ -30,6 +30,15 @@ import {
   orbitalVelocity,
   escapeVelocity,
 } from "./physics";
+import {
+  WAVE_CONCEPT_AMPLITUDE,
+  WAVE_CONCEPT_FREQUENCY_WAVELENGTH,
+  WAVE_CONCEPT_WAVE_SPEED,
+  WAVE_CONCEPT_SUPERPOSITION,
+  generateWaveChallenge,
+  type WaveChallenge,
+  type WaveConceptId,
+} from "./wavesChallenge";
 
 export const MODULE_PROJECTILE = "projectile_motion";
 export const MODULE_NEWTON = "newtons_laws";
@@ -51,6 +60,15 @@ export const MODULE_CIRCULAR = "circular_motion";
 // MODULE_SEQUENCE updated, lesson content added) in a later phase once the
 // game/render layer built on top of this foundation actually exists.
 export const MODULE_GRAVITATION = "gravitation_orbits";
+// Module 7 (Wave Motion) - same standalone-module pattern as MODULE_GRAVITATION
+// above: registered here so generateNextChallenge()/getModuleMastery() work
+// for a directly-instantiated `new AdaptiveEngine(MODULE_WAVES)` (exactly how
+// game-2d/src/WavesChallengeScene.tsx uses it), but deliberately NOT added to
+// MODULE_SEQUENCE - so the existing 5-module auto-progression is completely
+// unaffected, exactly like Gravitation. @nexus/shared's curriculum entry for
+// "waves" still has no `engineModuleId`/`optionalLab` (see that file's STABLE
+// MODULE IDS note) - final Learn/Play/Dashboard surfacing is a later phase.
+export const MODULE_WAVES = "wave_motion";
 
 export const CONCEPT_SPEED_RANGE = "speed_range";
 export const CONCEPT_GRAVITY_RANGE = "gravity_range";
@@ -96,6 +114,14 @@ const CONCEPT_SEQUENCE: Record<string, string[]> = {
   // MODULE_SEQUENCE above, so this entry is never reached through normal
   // module-to-module progression or any UI route today.
   [MODULE_GRAVITATION]: [CONCEPT_GRAVITATIONAL_FORCE, CONCEPT_ORBITAL_VELOCITY, CONCEPT_ESCAPE_VELOCITY],
+  // Same standalone-module registration as MODULE_GRAVITATION above, for
+  // `new AdaptiveEngine(MODULE_WAVES)`. Order matches the Wave Motion
+  // module brief exactly: Amplitude -> Frequency & Wavelength -> Wave Speed
+  // -> Superposition. Unlike Gravitation's CONCEPT_GRAVITATIONAL_FORCE, all
+  // 4 of these concepts have a real numeric/choice answer-submission channel
+  // in WavesChallengeScene.tsx (built in Phase 1), so none of them need
+  // EXPLORATION_ONLY_CONCEPTS below - every one is scorable.
+  [MODULE_WAVES]: [WAVE_CONCEPT_AMPLITUDE, WAVE_CONCEPT_FREQUENCY_WAVELENGTH, WAVE_CONCEPT_WAVE_SPEED, WAVE_CONCEPT_SUPERPOSITION],
 };
 
 const MODULE_OF_CONCEPT: Record<string, string> = {};
@@ -134,6 +160,19 @@ const SCORED_CONCEPT_SEQUENCE: Record<string, string[]> = {};
 for (const [moduleId, concepts] of Object.entries(CONCEPT_SEQUENCE)) {
   SCORED_CONCEPT_SEQUENCE[moduleId] = concepts.filter((c) => !EXPLORATION_ONLY_CONCEPTS.has(c));
 }
+
+// Mirrors @nexus/shared's curriculum.ts descriptions for the "waves" module's
+// 4 concepts word-for-word - kept here (rather than importing from
+// @nexus/shared) because every other module's conceptDescription is already
+// a literal string inline in its own switch case above; this is one small
+// lookup instead of 4 duplicated literals for the same reason
+// generateWaveChallenge is called instead of re-deriving its numbers.
+const WAVE_CONCEPT_DESCRIPTIONS: Record<string, string> = {
+  [WAVE_CONCEPT_AMPLITUDE]: "Explore how amplitude relates to a wave's energy and displacement.",
+  [WAVE_CONCEPT_FREQUENCY_WAVELENGTH]: "Connect a wave's frequency and wavelength through its speed.",
+  [WAVE_CONCEPT_WAVE_SPEED]: "Explore how wave speed relates to frequency and wavelength.",
+  [WAVE_CONCEPT_SUPERPOSITION]: "See how overlapping waves combine through superposition and interference.",
+};
 
 const LEARNING_RATE = 0.25;
 const TREND_WEIGHT = 0.05;
@@ -269,6 +308,17 @@ export interface Challenge {
   // radius, mirroring Orbital Velocity's own progression.
   escapeVelocitySolveFor?: "velocity" | "distance" | "starMass";
   targetEscapeVelocity?: number;
+
+  // Wave Motion (MODULE_WAVES, all 4 concepts) - unlike every module above,
+  // this is not a set of flat scalar fields: wavesChallenge.ts's own
+  // generateWaveChallenge() already fully defines the challenge (prompt,
+  // wave params, target value/tolerance or interference choice, etc.) as a
+  // rich, deterministic WaveChallenge. Duplicating that shape as flat fields
+  // here would be exactly the "duplicate challenge definitions in
+  // AdaptiveEngine" the Wave Motion Phase 2 brief prohibits - so this single
+  // field carries the whole WaveChallenge object through instead. Only set
+  // for the 4 wave concepts; see generateNextChallenge()'s wave case below.
+  waveChallenge?: WaveChallenge;
 }
 
 function clamp(v: number, min: number, max: number): number {
@@ -916,6 +966,30 @@ export class AdaptiveEngine {
         if (escapeVelocitySolveFor === "distance") return { ...shared, starMass };
         if (escapeVelocitySolveFor === "starMass") return { ...shared, distanceFromStar };
         return { ...shared, starMass, distanceFromStar };
+      }
+
+      // Wave Motion: one case for all 4 concepts, since generateWaveChallenge
+      // (wavesChallenge.ts) already dispatches on conceptId itself - this
+      // never re-derives amplitude/frequency/wavelength ranges, prompts, or
+      // solve-for logic, it only calls the existing Phase 1 generator and
+      // carries its result through on the Challenge. `id` (this call's own
+      // monotonic counter) is passed as the variant, so consecutive
+      // challenges for the same concept vary deterministically, exactly the
+      // way every other module's own random-free, tier/t-driven generation
+      // varies from one generateNextChallenge() call to the next.
+      case WAVE_CONCEPT_AMPLITUDE:
+      case WAVE_CONCEPT_FREQUENCY_WAVELENGTH:
+      case WAVE_CONCEPT_WAVE_SPEED:
+      case WAVE_CONCEPT_SUPERPOSITION: {
+        const waveChallenge = generateWaveChallenge(conceptId as WaveConceptId, id);
+        return {
+          ...base,
+          conceptTitle: waveChallenge.conceptTitle,
+          conceptDescription: WAVE_CONCEPT_DESCRIPTIONS[conceptId],
+          unit: waveChallenge.kind === "numeric" ? waveChallenge.unit : "",
+          tolerance: waveChallenge.kind === "numeric" ? waveChallenge.tolerance : 1,
+          waveChallenge,
+        };
       }
 
       default:

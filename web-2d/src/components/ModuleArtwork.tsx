@@ -10,7 +10,8 @@ export type ArtworkModuleId =
   | "work-energy"
   | "momentum"
   | "circular-motion"
-  | "gravitation";
+  | "gravitation"
+  | "waves";
 
 interface ModuleArtworkProps {
   moduleId: string;
@@ -34,6 +35,7 @@ const ARTWORK = {
   momentum: MomentumArt,
   "circular-motion": CircularMotionArt,
   gravitation: GravitationArt,
+  waves: WavesArt,
 } satisfies Record<ArtworkModuleId, (props: ArtProps) => ReturnType<typeof ProjectileArt>>;
 
 // Physics Park landscape: launcher, curved trajectory, target, distant hills.
@@ -380,6 +382,58 @@ function GravitationArt({ className }: ArtProps) {
         opacity="0.85"
       />
       <path d="M 372 18 L 359 12 L 362 26 Z" fill="#20C7D9" opacity="0.85" />
+    </svg>
+  );
+}
+
+// Wave Motion card art: a primary traveling sine wave (the main scene every
+// concept renders) with a smaller, phase-shifted second wave and their
+// summed resultant beneath it - the same AMPLITUDE -> FREQUENCY/WAVELENGTH ->
+// SPEED -> SUPERPOSITION story the game itself walks through, in the
+// website's own light lavender/cyan illustration language (matching
+// CircularMotionArt/GravitationArt above) rather than a screenshot of
+// wavesRender.ts.
+function WavesArt({ className }: ArtProps) {
+  // A single smooth cosine path sampled across the card width - reused (at
+  // different amplitude/wavelength/vertical offset) for the primary wave,
+  // the secondary wave, and their resultant below.
+  function wavePath(midY: number, amplitude: number, wavelengthPx: number, phase: number): string {
+    const points: string[] = [];
+    for (let x = 10; x <= 390; x += 5) {
+      const y = midY + amplitude * Math.sin((2 * Math.PI * x) / wavelengthPx + phase);
+      points.push(`${x} ${y.toFixed(1)}`);
+    }
+    return `M ${points.join(" L ")}`;
+  }
+
+  return (
+    <svg viewBox="0 0 400 220" className={className} aria-hidden="true">
+      <defs>
+        <linearGradient id="art-waves-bg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#EAFAFC" />
+          <stop offset="100%" stopColor="#F0EDFF" />
+        </linearGradient>
+        <linearGradient id="art-waves-primary" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#20C7D9" />
+          <stop offset="100%" stopColor="#6C4DFF" />
+        </linearGradient>
+      </defs>
+
+      <rect width="400" height="220" fill="url(#art-waves-bg)" />
+
+      {/* equilibrium line for the primary wave */}
+      <line x1="10" y1="72" x2="390" y2="72" stroke="#C9C3EE" strokeWidth="1.5" strokeDasharray="3 6" opacity="0.7" />
+
+      {/* primary traveling wave */}
+      <path d={wavePath(72, 34, 130, 0)} fill="none" stroke="url(#art-waves-primary)" strokeWidth="4" strokeLinecap="round" />
+
+      {/* two smaller component waves, phase-shifted */}
+      <path d={wavePath(150, 14, 90, 0)} fill="none" stroke="#3478F6" strokeWidth="2.5" strokeLinecap="round" opacity="0.6" />
+      <path d={wavePath(150, 10, 90, Math.PI)} fill="none" stroke="#F4B942" strokeWidth="2.5" strokeLinecap="round" opacity="0.6" />
+
+      {/* amplitude marker on the primary wave */}
+      <line x1="75" y1="72" x2="75" y2="38" stroke="#4F34D1" strokeWidth="2" strokeDasharray="2 4" opacity="0.8" />
+      <circle cx="75" cy="38" r="4" fill="#4F34D1" />
     </svg>
   );
 }
