@@ -11,7 +11,8 @@ export type ArtworkModuleId =
   | "momentum"
   | "circular-motion"
   | "gravitation"
-  | "waves";
+  | "waves"
+  | "archimedes";
 
 interface ModuleArtworkProps {
   moduleId: string;
@@ -36,6 +37,7 @@ const ARTWORK = {
   "circular-motion": CircularMotionArt,
   gravitation: GravitationArt,
   waves: WavesArt,
+  archimedes: ArchimedesArt,
 } satisfies Record<ArtworkModuleId, (props: ArtProps) => ReturnType<typeof ProjectileArt>>;
 
 // Physics Park landscape: launcher, curved trajectory, target, distant hills.
@@ -434,6 +436,90 @@ function WavesArt({ className }: ArtProps) {
       {/* amplitude marker on the primary wave */}
       <line x1="75" y1="72" x2="75" y2="38" stroke="#4F34D1" strokeWidth="2" strokeDasharray="2 4" opacity="0.8" />
       <circle cx="75" cy="38" r="4" fill="#4F34D1" />
+    </svg>
+  );
+}
+
+// Archimedes & Buoyancy card art: a glass beaker of fluid with a submerged
+// block hanging from a spring balance, weight and buoyant-force arrows
+// pulling opposite ways - the same READY -> lower into fluid -> measure
+// story the game itself walks through (game-2d/src/archimedesRender.ts),
+// but in the website's own light lavender/blue illustration language
+// (matching GravitationArt/WavesArt above) rather than a screenshot of the
+// real game canvas's own palette.
+function ArchimedesArt({ className }: ArtProps) {
+  const beakerLeft = 96;
+  const beakerRight = 264;
+  const beakerTop = 66;
+  const beakerBottom = 190;
+  const fluidTop = 112;
+  const balanceX = 320;
+
+  return (
+    <svg viewBox="0 0 400 220" className={className} aria-hidden="true">
+      <defs>
+        <linearGradient id="art-archimedes-bg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#EEF5FF" />
+          <stop offset="100%" stopColor="#EAFAFC" />
+        </linearGradient>
+        <linearGradient id="art-archimedes-fluid" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#9CD3FF" />
+          <stop offset="100%" stopColor="#3478F6" />
+        </linearGradient>
+      </defs>
+
+      <rect width="400" height="220" fill="url(#art-archimedes-bg)" />
+
+      {/* bench line */}
+      <line x1="10" y1="196" x2="390" y2="196" stroke="#C9C3EE" strokeWidth="2" />
+
+      {/* stand + spring balance, hanging above the beaker */}
+      <line x1={balanceX} y1="196" x2={balanceX} y2="34" stroke="#B9AEEB" strokeWidth="5" strokeLinecap="round" />
+      <line x1={balanceX} y1="34" x2="200" y2="34" stroke="#B9AEEB" strokeWidth="5" strokeLinecap="round" />
+      <path
+        d={`M 200 34 L 200 40 L 208 44 L 192 50 L 208 54 L 192 60 L 200 64`}
+        fill="none"
+        stroke="#6C4DFF"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
+      <rect x="176" y="64" width="48" height="26" rx="8" fill="#17182B" />
+      <rect x="180" y="68" width="40" height="18" rx="5" fill="#FFFFFF" />
+      <text x="200" y="81" textAnchor="middle" fontFamily="monospace" fontSize="11" fontWeight="700" fill="#17182B">
+        N
+      </text>
+
+      {/* string down to the submerged block */}
+      <line x1="200" y1="90" x2="200" y2="122" stroke="#5C5A72" strokeWidth="2" />
+
+      {/* beaker + fluid */}
+      <rect x={beakerLeft} y={fluidTop} width={beakerRight - beakerLeft} height={beakerBottom - fluidTop} fill="url(#art-archimedes-fluid)" opacity="0.5" />
+      <line x1={beakerLeft} y1={fluidTop} x2={beakerRight} y2={fluidTop} stroke="#20C7D9" strokeWidth="2.5" />
+      <path
+        d={`M ${beakerLeft} ${beakerTop} L ${beakerLeft} ${beakerBottom} L ${beakerRight} ${beakerBottom} L ${beakerRight} ${beakerTop}`}
+        fill="none"
+        stroke="#5C5A72"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+
+      {/* submerged block, partway down, with a soft displaced-fluid halo */}
+      <circle cx="200" cy="150" r="30" fill="#20C7D9" opacity="0.18" />
+      <rect x="178" y="128" width="44" height="44" rx="8" fill="#F4B942" stroke="#C98F14" strokeWidth="2.5" />
+
+      {/* downward weight arrow (W) */}
+      <line x1="164" y1="140" x2="164" y2="180" stroke="#D1483A" strokeWidth="4" strokeLinecap="round" />
+      <path d="M 164 180 L 157 166 L 171 166 Z" fill="#D1483A" />
+      <text x="150" y="164" fontFamily="monospace" fontSize="13" fontWeight="700" fill="#D1483A">
+        W
+      </text>
+
+      {/* upward buoyant-force arrow (F_B) */}
+      <line x1="236" y1="176" x2="236" y2="136" stroke="#20C7D9" strokeWidth="4" strokeLinecap="round" />
+      <path d="M 236 136 L 229 150 L 243 150 Z" fill="#20C7D9" />
+      <text x="242" y="164" fontFamily="monospace" fontSize="12" fontWeight="700" fill="#0E7A8C">
+        F_B
+      </text>
     </svg>
   );
 }

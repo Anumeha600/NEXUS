@@ -3,14 +3,14 @@
 //
 // These don't test any module's physics (that's physics.test.ts,
 // challengeLogic.test.ts, curriculumFlow.test.ts for the 5 modules that
-// exist today). They test the *shape* of the curriculum itself: that all 7
-// modules NEXUS will eventually have are registered with stable, unique
-// ids, that the bridge between a stable curriculum id and the
-// AdaptiveEngine's internal module id is correct for the modules that have
-// one, and that a curriculum-only module (no engine yet) can flow through
-// routing/engine startup without crashing or being mistaken for a working
-// module. This is what "safe to add Modules 6-7 later" actually means in
-// code, not just in a plan.
+// exist today). They test the *shape* of the curriculum itself: that all 8
+// modules NEXUS has today are registered with stable, unique ids, that the
+// bridge between a stable curriculum id and the AdaptiveEngine's internal
+// module id is correct for the modules that have one, and that a
+// curriculum-only module (no engine yet) can flow through routing/engine
+// startup without crashing or being mistaken for a working module. This is
+// what "safe to add Modules 6-8 later" actually means in code, not just in a
+// plan.
 // --------------------------------------------------------------------------
 import { describe, it, expect } from "vitest";
 import {
@@ -25,13 +25,26 @@ import {
   type ModuleInfo,
   type LearningEvent,
 } from "@nexus/shared";
-import { AdaptiveEngine, MODULE_PROJECTILE, MODULE_NEWTON, MODULE_WORK_ENERGY, MODULE_MOMENTUM, MODULE_CIRCULAR, CONCEPT_SPEED_RANGE } from "./adaptiveEngine";
+import {
+  AdaptiveEngine,
+  MODULE_PROJECTILE,
+  MODULE_NEWTON,
+  MODULE_WORK_ENERGY,
+  MODULE_MOMENTUM,
+  MODULE_CIRCULAR,
+  MODULE_ARCHIMEDES,
+  CONCEPT_SPEED_RANGE,
+  CONCEPT_BUOYANT_FORCE,
+  CONCEPT_APPARENT_WEIGHT,
+  CONCEPT_ARCHIMEDES_PRINCIPLE,
+  CONCEPT_FLOAT_SINK_DENSITY,
+} from "./adaptiveEngine";
 
-const EXPECTED_MODULE_IDS = ["projectile", "newton", "work-energy", "momentum", "circular-motion", "gravitation", "waves"];
+const EXPECTED_MODULE_IDS = ["projectile", "newton", "work-energy", "momentum", "circular-motion", "gravitation", "waves", "archimedes"];
 const AVAILABLE_MODULE_IDS = ["projectile", "newton", "work-energy", "momentum", "circular-motion"];
 
-describe("all 7 NEXUS modules are registered", () => {
-  it("has exactly the 7 planned modules, in curriculum order, with the recommended stable ids", () => {
+describe("all 8 NEXUS modules are registered", () => {
+  it("has exactly the 8 planned modules, in curriculum order, with the recommended stable ids", () => {
     expect(CURRICULUM.map((m) => m.id)).toEqual(EXPECTED_MODULE_IDS);
   });
 
@@ -59,7 +72,7 @@ describe("all 7 NEXUS modules are registered", () => {
     expect(new Set(allConceptIds).size).toBe(allConceptIds.length);
   });
 
-  it("exactly 5 modules are available today - Gravitation and Waves are curriculum-only until their own phase", () => {
+  it("exactly 5 modules are available today - Gravitation, Waves, and Archimedes are curriculum-only until their own phase", () => {
     expect(AVAILABLE_MODULES.map((m) => m.id)).toEqual(AVAILABLE_MODULE_IDS);
     for (const mod of CURRICULUM) {
       const shouldBeAvailable = AVAILABLE_MODULE_IDS.includes(mod.id);
@@ -84,7 +97,7 @@ describe("the stable curriculum id <-> AdaptiveEngine module id bridge", () => {
   });
 
   it("engineModuleIdFor is undefined for curriculum-only modules and for unrecognized ids - routing must fall back, never throw", () => {
-    for (const id of ["gravitation", "waves", "not-a-real-module"]) {
+    for (const id of ["gravitation", "waves", "archimedes", "not-a-real-module"]) {
       expect(engineModuleIdFor(id)).toBeUndefined();
     }
   });
@@ -105,7 +118,7 @@ describe("the stable curriculum id <-> AdaptiveEngine module id bridge", () => {
 
 describe("routing a curriculum-only module id into the engine never crashes", () => {
   it("starting the engine with the (undefined) engineModuleId of a not-yet-implemented module falls back to the default journey, exactly like an unrecognized module id does today", () => {
-    for (const id of ["gravitation", "waves"]) {
+    for (const id of ["gravitation", "waves", "archimedes"]) {
       const resolved = engineModuleIdFor(id); // undefined - no engine behind it yet
       const engine = new AdaptiveEngine(resolved);
       expect(engine.currentModuleId).toBe(MODULE_PROJECTILE);
@@ -122,7 +135,7 @@ describe("routing a curriculum-only module id into the engine never crashes", ()
   });
 });
 
-describe("existing modules are unaffected by the curriculum registration of Modules 6-7", () => {
+describe("existing modules are unaffected by the curriculum registration of Modules 6-8", () => {
   it("the 5 available modules' concept counts and order in the curriculum match adaptiveEngine.ts exactly", () => {
     const projectile = moduleById("projectile") as ModuleInfo;
     const newton = moduleById("newton") as ModuleInfo;
@@ -136,10 +149,23 @@ describe("existing modules are unaffected by the curriculum registration of Modu
     expect(circular.concepts.map((c) => c.id)).toEqual(["centripetal_force", "centripetal_acceleration", "circular_speed"]);
   });
 
-  it("a fresh engine still defaults to Projectile Motion / Speed & Range, regardless of the 2 remaining curriculum-only modules existing", () => {
+  it("a fresh engine still defaults to Projectile Motion / Speed & Range, regardless of the 3 curriculum-only optional labs existing", () => {
     const engine = new AdaptiveEngine();
     expect(engine.currentModuleId).toBe(MODULE_PROJECTILE);
     expect(engine.currentConceptId).toBe(CONCEPT_SPEED_RANGE);
+  });
+
+  it("Archimedes' curriculum concept ids match adaptiveEngine.ts's own CONCEPT_BUOYANT_FORCE/CONCEPT_APPARENT_WEIGHT/CONCEPT_ARCHIMEDES_PRINCIPLE/CONCEPT_FLOAT_SINK_DENSITY exactly", () => {
+    const archimedes = moduleById("archimedes") as ModuleInfo;
+    expect(archimedes.concepts.map((c) => c.id)).toEqual([CONCEPT_BUOYANT_FORCE, CONCEPT_APPARENT_WEIGHT, CONCEPT_ARCHIMEDES_PRINCIPLE, CONCEPT_FLOAT_SINK_DENSITY]);
+  });
+
+  it("MODULE_ARCHIMEDES is registered in the adaptive engine but never part of MODULE_SEQUENCE - a fresh engine never starts there", () => {
+    const engine = new AdaptiveEngine(MODULE_ARCHIMEDES);
+    expect(engine.currentModuleId).toBe(MODULE_ARCHIMEDES);
+    expect(engine.currentConceptId).toBe(CONCEPT_BUOYANT_FORCE);
+    const defaultEngine = new AdaptiveEngine();
+    expect(defaultEngine.currentModuleId).not.toBe(MODULE_ARCHIMEDES);
   });
 });
 
@@ -332,9 +358,10 @@ describe("Learn page concept lesson content", () => {
     }
   });
 
-  it("playRouteFor also maps Gravitation and Waves - optional labs with a real game, kept outside the normal available/adaptive-sequence set", () => {
+  it("playRouteFor also maps Gravitation, Waves, and Archimedes - optional labs with a real game, kept outside the normal available/adaptive-sequence set", () => {
     expect(playRouteFor("gravitation")).toBe("/play?module=gravitation");
     expect(playRouteFor("waves")).toBe("/play?module=waves");
+    expect(playRouteFor("archimedes")).toBe("/play?module=archimedes");
   });
 
   it("playRouteFor refuses to present a curriculum-only module (no game at all) or an unrecognized module as playable", () => {
@@ -343,16 +370,16 @@ describe("Learn page concept lesson content", () => {
 });
 
 describe("optional labs (a real game outside the normal adaptive sequence)", () => {
-  it("Gravitation and Waves are marked as optional labs, not as part of the normal available/adaptive-sequence set", () => {
-    for (const id of ["gravitation", "waves"]) {
+  it("Gravitation, Waves, and Archimedes are marked as optional labs, not as part of the normal available/adaptive-sequence set", () => {
+    for (const id of ["gravitation", "waves", "archimedes"]) {
       const mod = moduleById(id);
       expect(mod?.optionalLab).toBe(true);
       expect(mod?.available).toBe(false);
     }
   });
 
-  it("OPTIONAL_LABS contains exactly Gravitation and Waves, in curriculum order, and never overlaps with AVAILABLE_MODULES", () => {
-    expect(OPTIONAL_LABS.map((m) => m.id)).toEqual(["gravitation", "waves"]);
+  it("OPTIONAL_LABS contains exactly Gravitation, Waves, and Archimedes, in curriculum order, and never overlaps with AVAILABLE_MODULES", () => {
+    expect(OPTIONAL_LABS.map((m) => m.id)).toEqual(["gravitation", "waves", "archimedes"]);
     for (const mod of OPTIONAL_LABS) {
       expect(AVAILABLE_MODULES.some((m) => m.id === mod.id)).toBe(false);
     }

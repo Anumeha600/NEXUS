@@ -567,6 +567,102 @@ export const CURRICULUM: ModuleInfo[] = [
     // labs" describe block.
     optionalLab: true,
   },
+  // Archimedes & Buoyancy (Phase 3) - the 8th Physics Lab, appended last so
+  // the first 7 modules' order/semantics never change. Same optional-lab
+  // pattern as Gravitation/Waves above: a real, working game exists
+  // (game-2d/src/ArchimedesChallengeScene, wired to its own standalone
+  // `new AdaptiveEngine(MODULE_ARCHIMEDES)` instance - see adaptiveEngine.ts's
+  // MODULE_ARCHIMEDES and archimedesLearning.ts's recordArchimedesAttempt),
+  // so it is exposed as a normal Physics Lab card rather than folded into
+  // the 5-module adaptive sequence (MODULE_SEQUENCE) - deliberately no
+  // `engineModuleId` here, same reason Gravitation/Waves have none: this
+  // stays `available: false`, and curriculum.test.ts's "a curriculum-only
+  // module has no engineModuleId" invariant applies to every `available:
+  // false` module, optional lab or not. Concept ids below are the exact
+  // string values adaptiveEngine.ts's own CONCEPT_BUOYANT_FORCE/
+  // CONCEPT_APPARENT_WEIGHT/CONCEPT_ARCHIMEDES_PRINCIPLE/
+  // CONCEPT_FLOAT_SINK_DENSITY use - same "keep the two id vocabularies
+  // identical" convention as every other module's concepts.
+  {
+    id: "archimedes",
+    title: "Archimedes' Principle",
+    tagline: "Buoyant Force • Apparent Weight • Float & Sink",
+    description: "Interactive buoyancy experiment where players investigate displaced fluid, apparent weight, buoyant force, and floating/sinking.",
+    concepts: [
+      {
+        id: "buoyant_force",
+        title: "Buoyant Force",
+        description: "A fluid exerts an upward force on an immersed object because pressure is greater at greater depth.",
+        formula: "F_B = ρ_f g V_displaced",
+        variables: [
+          { symbol: "F_B", meaning: "Buoyant force (N)" },
+          { symbol: "ρ_f", meaning: "Fluid density (kg/m³)" },
+          { symbol: "g", meaning: "Gravitational acceleration (m/s²)" },
+          { symbol: "V_displaced", meaning: "Displaced fluid volume (m³)" },
+        ],
+        keyIdea: "Greater displaced volume or greater fluid density produces greater buoyant force.",
+        example: {
+          given: ["ρ_f = 1000 kg/m³ (water)", "g = 9.8 m/s²", "V_displaced = 0.0015 m³"],
+          calculate: "F_B = ρ_f g V_displaced",
+          solution: "F_B = 1000 × 9.8 × 0.0015 = 14.7 N",
+        },
+      },
+      {
+        id: "apparent_weight",
+        title: "Apparent Weight",
+        description: "An immersed object appears lighter because the upward buoyant force reduces the tension measured by the spring balance.",
+        formula: "W_apparent = W_actual − F_B",
+        variables: [
+          { symbol: "W_apparent", meaning: "Apparent weight once submerged (N)" },
+          { symbol: "W_actual", meaning: "True weight measured in air (N)" },
+          { symbol: "F_B", meaning: "Buoyant force (N)" },
+        ],
+        keyIdea: "The spring balance reads less once submerged, because buoyancy partially supports the object's weight.",
+        example: {
+          given: ["W_actual = 19.6 N", "F_B = 14.7 N"],
+          calculate: "W_apparent = W_actual − F_B",
+          solution: "W_apparent = 19.6 − 14.7 = 4.9 N",
+        },
+      },
+      {
+        id: "archimedes_principle",
+        title: "Archimedes' Principle",
+        description: "The buoyant force on an immersed object equals the weight of the fluid displaced by that object.",
+        formula: "F_B = ρ_f g V_displaced",
+        variables: [
+          { symbol: "F_B", meaning: "Buoyant force (N)" },
+          { symbol: "ρ_f", meaning: "Fluid density (kg/m³)" },
+          { symbol: "g", meaning: "Gravitational acceleration (m/s²)" },
+          { symbol: "V_displaced", meaning: "Displaced fluid volume (m³)" },
+        ],
+        keyIdea: "Knowing any two of buoyant force, fluid density, and displaced volume lets you solve for the third.",
+        example: {
+          given: ["F_B = 14.7 N", "ρ_f = 1000 kg/m³ (water)", "g = 9.8 m/s²"],
+          calculate: "V_displaced = F_B / (ρ_f g)",
+          solution: "V_displaced = 14.7 / (1000 × 9.8) = 0.0015 m³",
+        },
+      },
+      {
+        id: "float_sink_density",
+        title: "Float, Sink & Density",
+        description: "Compare an object's density to a fluid's to predict whether it floats, sinks, or stays neutrally suspended.",
+        formula: "ρ_object < ρ_fluid → FLOAT\nρ_object > ρ_fluid → SINK\nρ_object = ρ_fluid → NEUTRAL",
+        variables: [
+          { symbol: "ρ_object", meaning: "Object density = mass / volume (kg/m³)" },
+          { symbol: "ρ_fluid", meaning: "Fluid density (kg/m³)" },
+        ],
+        keyIdea: "An object floats when it's less dense than the fluid, sinks when it's denser, and stays neutrally suspended when the two densities match exactly.",
+        example: {
+          given: ["ρ_object = 600 kg/m³", "ρ_fluid = 1000 kg/m³ (water)"],
+          calculate: "Compare ρ_object to ρ_fluid",
+          solution: "600 < 1000 → the object FLOATS",
+        },
+      },
+    ],
+    theme: { accent: "from-cyan to-blue", ring: "ring-cyan/20", chip: "bg-cyan/10 text-blue-dark" },
+    available: false,
+    optionalLab: true,
+  },
 ];
 
 // The modules that make up the normal adaptive sequence - what the Learn

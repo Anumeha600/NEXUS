@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { GravitationChallengeScene, WavesChallengeScene } from "@nexus/game-2d";
+import { GravitationChallengeScene, WavesChallengeScene, ArchimedesChallengeScene } from "@nexus/game-2d";
 import PlayExperience from "@/components/PlayExperience";
 import PlayHub from "@/components/PlayHub";
 
@@ -69,6 +69,31 @@ export default async function PlayPage({ searchParams }: { searchParams: Promise
           </div>
 
           <WavesChallengeScene />
+        </div>
+      </div>
+    );
+  }
+
+  // Archimedes & Buoyancy has the same standalone AdaptiveEngine/game loop
+  // as Gravitation/Waves above (see ArchimedesChallengeScene's own header
+  // comment) - it never goes through GameCanvas/PlayExperience either, so it
+  // gets the same one module-specific branch treatment.
+  if (module === "archimedes") {
+    return (
+      <div className="px-6 py-12">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-8">
+            <Link href="/play" className="inline-flex items-center gap-1.5 text-sm font-bold text-purple hover:opacity-80">
+              <span aria-hidden="true">←</span> Back to Labs
+            </Link>
+            <span className="mt-4 block text-xs font-bold tracking-[0.2em] text-purple uppercase">Nexus / Play</span>
+            <h1 className="mt-2 font-display text-3xl font-extrabold text-ink sm:text-4xl">Archimedes&apos; Principle</h1>
+            <p className="mt-2 max-w-2xl text-ink-muted">
+              Lower an object into a fluid and connect displaced volume, buoyant force, and apparent weight - then predict whether it floats or sinks.
+            </p>
+          </div>
+
+          <ArchimedesChallengeScene />
         </div>
       </div>
     );
