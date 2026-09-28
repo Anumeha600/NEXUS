@@ -39,6 +39,16 @@ import {
   type WaveChallenge,
   type WaveConceptId,
 } from "./wavesChallenge";
+import {
+  ARCHIMEDES_CONCEPT_BUOYANT_FORCE,
+  ARCHIMEDES_CONCEPT_APPARENT_WEIGHT,
+  ARCHIMEDES_CONCEPT_DISPLACED_VOLUME,
+  ARCHIMEDES_CONCEPT_FLUID_DENSITY,
+  ARCHIMEDES_CONCEPT_FLOAT_SINK,
+  generateArchimedesChallenge,
+  type ArchimedesChallenge,
+  type ArchimedesConceptId,
+} from "./archimedesChallenge";
 
 export const MODULE_PROJECTILE = "projectile_motion";
 export const MODULE_NEWTON = "newtons_laws";
@@ -69,6 +79,15 @@ export const MODULE_GRAVITATION = "gravitation_orbits";
 // "waves" still has no `engineModuleId`/`optionalLab` (see that file's STABLE
 // MODULE IDS note) - final Learn/Play/Dashboard surfacing is a later phase.
 export const MODULE_WAVES = "wave_motion";
+// Module 8 (Archimedes & Buoyancy) - same standalone-module pattern as
+// MODULE_GRAVITATION/MODULE_WAVES above: registered here so
+// generateNextChallenge()/getModuleMastery() work for a directly-
+// instantiated `new AdaptiveEngine(MODULE_ARCHIMEDES)`, but deliberately NOT
+// added to MODULE_SEQUENCE - the existing 5-module auto-progression is
+// completely unaffected. Product-wide surfacing (Dashboard/Play Hub/Learn/
+// curriculum) is a later phase, exactly like Gravitation and Wave Motion
+// before their own Phase 3s.
+export const MODULE_ARCHIMEDES = "archimedes_buoyancy";
 
 export const CONCEPT_SPEED_RANGE = "speed_range";
 export const CONCEPT_GRAVITY_RANGE = "gravity_range";
@@ -99,6 +118,22 @@ export const CONCEPT_CIRCULAR_SPEED = "circular_speed";
 export const CONCEPT_GRAVITATIONAL_FORCE = "gravitational_force";
 export const CONCEPT_ORBITAL_VELOCITY = "orbital_velocity";
 export const CONCEPT_ESCAPE_VELOCITY = "escape_velocity";
+// Archimedes & Buoyancy's 4 ADAPTIVE concepts (Phase 2). These are a
+// distinct vocabulary from archimedesChallenge.ts's own 5
+// ARCHIMEDES_CONCEPT_* challenge-generator ids (imported above) - the same
+// relationship MODULE_GRAVITATION's 3 concepts already have to
+// gravitationChallenge.ts. CONCEPT_BUOYANT_FORCE/CONCEPT_APPARENT_WEIGHT
+// deliberately reuse the exact string values of their same-named Phase 1
+// counterparts (a 1:1 mapping, so the two vocabularies read as the same
+// concept); CONCEPT_ARCHIMEDES_PRINCIPLE is a genuinely new, single adaptive
+// concept covering BOTH the Displaced Volume and Fluid Density challenge
+// types (both are direct expressions of F_B = rho_f g V, Archimedes'
+// principle itself) - see generateNextChallenge()'s Archimedes case below
+// for how it alternates between them deterministically.
+export const CONCEPT_BUOYANT_FORCE = "buoyant_force";
+export const CONCEPT_APPARENT_WEIGHT = "apparent_weight";
+export const CONCEPT_ARCHIMEDES_PRINCIPLE = "archimedes_principle";
+export const CONCEPT_FLOAT_SINK_DENSITY = "float_sink_density";
 
 const MODULE_SEQUENCE = [MODULE_PROJECTILE, MODULE_NEWTON, MODULE_WORK_ENERGY, MODULE_MOMENTUM, MODULE_CIRCULAR];
 
@@ -122,6 +157,14 @@ const CONCEPT_SEQUENCE: Record<string, string[]> = {
   // in WavesChallengeScene.tsx (built in Phase 1), so none of them need
   // EXPLORATION_ONLY_CONCEPTS below - every one is scorable.
   [MODULE_WAVES]: [WAVE_CONCEPT_AMPLITUDE, WAVE_CONCEPT_FREQUENCY_WAVELENGTH, WAVE_CONCEPT_WAVE_SPEED, WAVE_CONCEPT_SUPERPOSITION],
+  // Same standalone-module registration as MODULE_GRAVITATION/MODULE_WAVES
+  // above, for `new AdaptiveEngine(MODULE_ARCHIMEDES)`. Order matches the
+  // Phase 2 brief exactly: Buoyant Force -> Apparent Weight -> Archimedes'
+  // Principle -> Float/Sink & Density. All 4 concepts already have a real
+  // numeric/choice answer-submission channel in ArchimedesChallengeScene.tsx
+  // (built in Phase 1), so none of them need EXPLORATION_ONLY_CONCEPTS below -
+  // every one is scorable, exactly like Wave Motion's own 4 concepts.
+  [MODULE_ARCHIMEDES]: [CONCEPT_BUOYANT_FORCE, CONCEPT_APPARENT_WEIGHT, CONCEPT_ARCHIMEDES_PRINCIPLE, CONCEPT_FLOAT_SINK_DENSITY],
 };
 
 const MODULE_OF_CONCEPT: Record<string, string> = {};
@@ -173,6 +216,29 @@ const WAVE_CONCEPT_DESCRIPTIONS: Record<string, string> = {
   [WAVE_CONCEPT_WAVE_SPEED]: "Explore how wave speed relates to frequency and wavelength.",
   [WAVE_CONCEPT_SUPERPOSITION]: "See how overlapping waves combine through superposition and interference.",
 };
+
+// Mirrors WAVE_CONCEPT_DESCRIPTIONS above, for Archimedes & Buoyancy's own 4
+// adaptive concepts.
+const ARCHIMEDES_CONCEPT_DESCRIPTIONS: Record<string, string> = {
+  [CONCEPT_BUOYANT_FORCE]: "Measure an object in air and submerged to find the buoyant force acting on it.",
+  [CONCEPT_APPARENT_WEIGHT]: "Predict what a spring balance reads once an object is fully submerged in a fluid.",
+  [CONCEPT_ARCHIMEDES_PRINCIPLE]: "Relate the buoyant force to the volume and density of fluid it displaces.",
+  [CONCEPT_FLOAT_SINK_DENSITY]: "Compare an object's density to a fluid's to predict whether it floats, sinks, or stays neutrally suspended.",
+};
+
+// Maps each of the 4 ADAPTIVE Archimedes concepts above onto
+// archimedesChallenge.ts's own 5 challenge-generator concepts.
+// CONCEPT_BUOYANT_FORCE/CONCEPT_APPARENT_WEIGHT/CONCEPT_FLOAT_SINK_DENSITY
+// are 1:1 with a single Phase 1 challenge type; CONCEPT_ARCHIMEDES_PRINCIPLE
+// alternates deterministically - by the parity of `variant` (this call's own
+// monotonic Challenge id, exactly like Wave Motion's own variant argument) -
+// between Displaced Volume and Fluid Density, never Math.random.
+function underlyingArchimedesConcept(conceptId: string, variant: number): ArchimedesConceptId {
+  if (conceptId === CONCEPT_BUOYANT_FORCE) return ARCHIMEDES_CONCEPT_BUOYANT_FORCE;
+  if (conceptId === CONCEPT_APPARENT_WEIGHT) return ARCHIMEDES_CONCEPT_APPARENT_WEIGHT;
+  if (conceptId === CONCEPT_FLOAT_SINK_DENSITY) return ARCHIMEDES_CONCEPT_FLOAT_SINK;
+  return variant % 2 === 0 ? ARCHIMEDES_CONCEPT_DISPLACED_VOLUME : ARCHIMEDES_CONCEPT_FLUID_DENSITY;
+}
 
 const LEARNING_RATE = 0.25;
 const TREND_WEIGHT = 0.05;
@@ -319,6 +385,16 @@ export interface Challenge {
   // field carries the whole WaveChallenge object through instead. Only set
   // for the 4 wave concepts; see generateNextChallenge()'s wave case below.
   waveChallenge?: WaveChallenge;
+
+  // Archimedes & Buoyancy (MODULE_ARCHIMEDES, all 4 concepts) - same
+  // reasoning as waveChallenge above: archimedesChallenge.ts's own
+  // generateArchimedesChallenge() already fully defines the challenge
+  // (prompt, object/fluid setup, target value/tolerance or float/sink
+  // choice, etc.) as a rich, deterministic ArchimedesChallenge. This single
+  // field carries that whole object through rather than duplicating its
+  // shape as flat fields. Only set for the 4 Archimedes concepts; see
+  // generateNextChallenge()'s Archimedes case below.
+  archimedesChallenge?: ArchimedesChallenge;
 }
 
 function clamp(v: number, min: number, max: number): number {
@@ -989,6 +1065,30 @@ export class AdaptiveEngine {
           unit: waveChallenge.kind === "numeric" ? waveChallenge.unit : "",
           tolerance: waveChallenge.kind === "numeric" ? waveChallenge.tolerance : 1,
           waveChallenge,
+        };
+      }
+
+      // Archimedes & Buoyancy: one case for all 4 adaptive concepts, mirroring
+      // the Wave Motion case above - underlyingArchimedesConcept picks which
+      // of archimedesChallenge.ts's own 5 challenge types to generate, and
+      // `id` (this call's own monotonic counter) is passed as the variant, so
+      // consecutive challenges vary deterministically the same way every
+      // other module's generation does. The manually-selected fluid (a Phase
+      // 1 experiment parameter, not an adaptive one) is applied afterwards by
+      // ArchimedesChallengeScene.tsx itself via applyFluidToChallenge - this
+      // engine only ever generates the challenge at its own default fluid.
+      case CONCEPT_BUOYANT_FORCE:
+      case CONCEPT_APPARENT_WEIGHT:
+      case CONCEPT_ARCHIMEDES_PRINCIPLE:
+      case CONCEPT_FLOAT_SINK_DENSITY: {
+        const archimedesChallenge = generateArchimedesChallenge(underlyingArchimedesConcept(conceptId, id), id);
+        return {
+          ...base,
+          conceptTitle: archimedesChallenge.conceptTitle,
+          conceptDescription: ARCHIMEDES_CONCEPT_DESCRIPTIONS[conceptId],
+          unit: archimedesChallenge.kind === "numeric" ? archimedesChallenge.unit : "",
+          tolerance: archimedesChallenge.kind === "numeric" ? archimedesChallenge.tolerance : 1,
+          archimedesChallenge,
         };
       }
 
