@@ -1,4 +1,4 @@
-<img width="1600" height="1187" alt="image (1)" src="https://github.com/user-attachments/assets/917c854a-73b5-4428-8873-1c00239605b1" />
+<img width="1600" height="769" alt="a2a9a105-a15d-4ca3-b9ec-7435655d6174" src="https://github.com/user-attachments/assets/74e20dab-46cf-4395-b263-bd6dca096c2d" />
 
 
 # NEXUS
