@@ -140,6 +140,23 @@ function WavesFormulaCard() {
 
 const INTERFERENCE_OPTIONS: readonly InterferenceType[] = ["constructive", "destructive"];
 
+// A small secondary action next to Submit - retries the CURRENT challenge
+// from its initial state (see handleReset below). Deliberately a plain
+// outline pill, visually subordinate to Submit's filled gradient button,
+// never competing with it for attention.
+function ResetButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Reset this challenge"
+      className="inline-flex items-center justify-center gap-1.5 rounded-full border border-border bg-white px-4 py-2.5 text-sm font-bold text-ink-muted transition hover:bg-surface-lavender/60 hover:text-ink"
+    >
+      <span aria-hidden="true">↻</span> Reset
+    </button>
+  );
+}
+
 export default function WavesChallengeScene() {
   // One AdaptiveEngine instance for the lifetime of this component, exactly
   // as GravitationChallengeScene.tsx owns one for MODULE_GRAVITATION - never
@@ -220,6 +237,20 @@ export default function WavesChallengeScene() {
     setChallenge(attemptResult.nextChallenge);
   }
 
+  // Retries the SAME challenge from its initial state - purely local UI/game
+  // state, exactly mirroring the reset this component's own [challenge]
+  // effect above already does whenever a genuinely new challenge arrives.
+  // Never touches `challenge`/`engine` - no AdaptiveEngine call, no
+  // recordWaveAttempt, no attemptNumberRef increment, so mastery and the
+  // adaptive engine's progression are completely unaffected.
+  function handleReset() {
+    setControls(initialControlsFor(waveChallenge));
+    setAnswerText("");
+    setChoiceAnswer(null);
+    setAttemptResult(null);
+    readyShownAtRef.current = performance.now();
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
       <div className="rounded-3xl border border-border bg-white p-5 shadow-sm">
@@ -282,7 +313,7 @@ export default function WavesChallengeScene() {
         <label className="text-xs font-bold tracking-widest text-ink-muted uppercase">Your Answer</label>
 
         {waveChallenge.kind === "choice" ? (
-          <div className="mt-3 flex flex-wrap gap-3">
+          <div className="mt-3 flex flex-wrap items-center gap-3">
             {INTERFERENCE_OPTIONS.map((option) => (
               <button
                 key={option}
@@ -296,12 +327,14 @@ export default function WavesChallengeScene() {
                 {option}
               </button>
             ))}
+            <ResetButton onClick={handleReset} />
           </div>
         ) : waveChallenge.mode === "match" ? (
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <p className="text-sm text-ink-muted">
               Set the amplitude control above to <span className="font-semibold text-ink">{waveChallenge.targetValue} m</span>, then submit.
             </p>
+            <ResetButton onClick={handleReset} />
             <button
               type="button"
               disabled={locked}
@@ -328,6 +361,7 @@ export default function WavesChallengeScene() {
               />
               <span className="text-sm font-semibold text-ink-muted">{waveChallenge.unit}</span>
             </div>
+            <ResetButton onClick={handleReset} />
             <button
               type="button"
               disabled={locked || answerError !== null}
