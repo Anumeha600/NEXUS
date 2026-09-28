@@ -24,20 +24,26 @@
 // already fully decided - recordGravitationAttempt/recordWaveAttempt/
 // recordArchimedesAttempt already ran engine.recordAttempt()/
 // evaluateContentTransition()/generateNextChallenge() to produce
-// result.event. This function never reads the AI response, never returns
-// it, and never touches an AdaptiveEngine - there is nothing here an AI
-// response could feed back into.
+// result.event. This function never lets the AI response reach an
+// AdaptiveEngine or change anything already decided - the only thing it
+// does with a successful response is persist it (Phase 5A) onto the SAME
+// SessionAttempt this call already appended, via newSessionAttemptId()/
+// updateSessionAttemptInsight() - never a second LearningEvent, never a
+// second history entry.
 //
 // Never blocks or throws into its caller - gameplay must not fail because
-// AI insight or session-history storage fails. appendSessionAttempt is
-// already internally defensive (see sessionHistory.ts); the fetch below is
-// wrapped the same way GameCanvas.tsx's own requestAiInsight is.
+// AI insight or session-history storage fails. appendSessionAttempt/
+// updateSessionAttemptInsight are already internally defensive (see
+// sessionHistory.ts); the fetch below is wrapped the same way
+// GameCanvas.tsx's own requestAiInsight is.
 // --------------------------------------------------------------------------
 
-import { appendSessionAttempt, type LearningEvent } from "@nexus/shared";
+import { appendSessionAttempt, newSessionAttemptId, updateSessionAttemptInsight, parseInsightResponse, type LearningEvent } from "@nexus/shared";
 
 export async function recordLearningEvent(event: LearningEvent): Promise<void> {
+  const attemptId = newSessionAttemptId();
   appendSessionAttempt({
+    id: attemptId,
     timestamp: Date.now(),
     module: event.module,
     concept: event.concept,
@@ -50,15 +56,19 @@ export async function recordLearningEvent(event: LearningEvent): Promise<void> {
 
   if (typeof fetch !== "function") return;
   try {
-    await fetch("/api/insight", {
+    const res = await fetch("/api/insight", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(event),
     });
+    if (!res.ok) return;
+    const insight = parseInsightResponse(await res.json());
+    if (insight) updateSessionAttemptInsight(attemptId, insight);
   } catch {
     // Network error, timeout, or the endpoint itself failing - the same
     // "never break gameplay over AI" contract GameCanvas.tsx's own
-    // requestAiInsight follows. The response is never read here; this
-    // function's only job is to fire the request.
+    // requestAiInsight follows. The SessionAttempt this call already
+    // appended is unaffected either way - only its insight field stays
+    // unset.
   }
 }

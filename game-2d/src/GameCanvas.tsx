@@ -22,6 +22,7 @@ import {
   type ResultExtraRow,
 } from "./challengeLogic";
 import { RUN_DURATION_MS, experimentPhaseAt, runningReadoutFor, nonProjectileRunDurationMs, projectileRunDurationMs } from "./experimentRunner";
+import { newSessionAttemptId, updateSessionAttemptInsight, parseInsightResponse } from "@nexus/shared";
 
 const CANVAS_W = 900;
 const CANVAS_H = 480;
@@ -68,6 +69,11 @@ function newSessionId(): string {
 }
 
 export interface ChallengeResultEvent {
+  // The same id requestAiInsight below uses to later patch THIS SAME
+  // SessionAttempt's insight field once its (async) AI response resolves -
+  // see PlayExperience.tsx's handleResult, which must store it as the
+  // SessionAttempt's own `id`.
+  attemptId: string;
   moduleId: string;
   conceptId: string;
   conceptTitle: string;
@@ -276,7 +282,15 @@ export default function GameCanvas({
     });
     setPhase("result");
 
+    // Generated once and shared by both calls below: onChallengeResult
+    // (which PlayExperience.tsx uses as the SessionAttempt's own `id` when
+    // it appends the entry) and requestAiInsight (which uses the SAME id to
+    // patch that exact entry's insight once the async AI response resolves -
+    // never a second LearningEvent, never a second history entry).
+    const attemptId = newSessionAttemptId();
+
     onChallengeResult?.({
+      attemptId,
       moduleId: challenge.moduleId,
       conceptId: challenge.conceptId,
       conceptTitle: challenge.conceptTitle,
@@ -292,7 +306,7 @@ export default function GameCanvas({
       context: contextFor(challenge, submittedValue, actualValue),
     });
 
-    requestAiInsight(challenge, actualValue, success, performance_, masteryBefore, masteryAfter, submittedValue, attempts, engine.getRecentAttemptCount(challenge.conceptId));
+    requestAiInsight(attemptId, challenge, actualValue, success, performance_, masteryBefore, masteryAfter, submittedValue, attempts, engine.getRecentAttemptCount(challenge.conceptId));
 
     window.setTimeout(() => {
       const moduleChanged = engine.currentModuleId !== previousModule;
@@ -323,6 +337,7 @@ export default function GameCanvas({
   }
 
   async function requestAiInsight(
+    attemptId: string,
     ch: Challenge,
     actual: number,
     success: boolean,
@@ -355,6 +370,14 @@ export default function GameCanvas({
       if (!res.ok) throw new Error("insight failed");
       const data = await res.json();
       setAiInsight({ status: "ready", headline: data.headline, explanation: data.explanation, suggestion: data.suggestion, source: data.source });
+      // Phase 5A: persist the SAME response onto the SessionAttempt
+      // PlayExperience.tsx's handleResult already appended (keyed by
+      // attemptId, the id onChallengeResult carried) - never a second
+      // LearningEvent, never a second history entry. A response that
+      // doesn't validate is silently dropped, exactly like the in-game
+      // aiInsight state above already tolerates a malformed response.
+      const insight = parseInsightResponse(data);
+      if (insight) updateSessionAttemptInsight(attemptId, insight);
     } catch {
       setAiInsight({ status: "error" });
     }

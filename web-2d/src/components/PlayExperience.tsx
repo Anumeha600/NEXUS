@@ -38,9 +38,13 @@ export default function PlayExperience({ moduleParam }: { moduleParam?: string }
 
   function handleResult(event: ChallengeResultEvent) {
     // The canvas game already requested its own AI insight and shows it on
-    // the in-game result card immediately - this just records the same
-    // event into the shared, honest session history (see AIDashboardCard).
+    // the in-game result card immediately; it also patches this SAME
+    // SessionAttempt's `insight` field once that (async) response resolves
+    // (see GameCanvas.tsx's requestAiInsight) - so `id` here MUST be
+    // event.attemptId, the same id that call uses, or the two would never
+    // correlate and the AI Insights page would never see an explanation.
     appendSessionAttempt({
+      id: event.attemptId,
       timestamp: Date.now(),
       module: event.moduleId,
       concept: event.conceptTitle,

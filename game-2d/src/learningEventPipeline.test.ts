@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { recordLearningEvent } from "./learningEventPipeline";
-import { readSessionHistory, type LearningEvent } from "@nexus/shared";
+import { readSessionHistory, appendSessionAttempt, newSessionAttemptId, updateSessionAttemptInsight, parseInsightResponse, type LearningEvent, type SessionAttempt } from "@nexus/shared";
 import { AdaptiveEngine, MODULE_GRAVITATION, MODULE_WAVES, MODULE_ARCHIMEDES } from "./adaptiveEngine";
 import { gravitationSimSetupFor } from "./gravitationChallenge";
 import { recordGravitationAttempt } from "./gravitationLearning";
@@ -36,6 +36,21 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
 });
+
+// A realistic, valid /api/insight response body - the shape
+// generateInsight()/validateInsightShape in shared/src/insight.ts actually
+// produce (headline/explanation/suggestion/concept/confidence/source).
+function sampleInsightPayload(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    headline: "Right on target",
+    explanation: "Your result matched the target.",
+    suggestion: "Try the next challenge.",
+    concept: "Orbital Velocity",
+    confidence: "high",
+    source: "ai",
+    ...overrides,
+  };
+}
 
 function sampleEvent(overrides: Partial<LearningEvent> = {}): LearningEvent {
   return {
@@ -150,8 +165,158 @@ describe("recordLearningEvent - generic pipeline behavior", () => {
   });
 });
 
-describe("A. Gravitation attempt -> LearningEvent -> session history", () => {
-  it("a submitted Gravitation attempt is recorded through the shared pipeline", async () => {
+describe("Phase 5A - sessionHistory's shared insight-persistence primitives", () => {
+  it("newSessionAttemptId produces distinct ids across calls", () => {
+    const ids = new Set(Array.from({ length: 20 }, () => newSessionAttemptId()));
+    expect(ids.size).toBe(20);
+  });
+
+  it("parseInsightResponse accepts a well-shaped payload and strips the unused `concept` field", () => {
+    const parsed = parseInsightResponse(sampleInsightPayload());
+    expect(parsed).toEqual({
+      headline: "Right on target",
+      explanation: "Your result matched the target.",
+      suggestion: "Try the next challenge.",
+      confidence: "high",
+      source: "ai",
+    });
+    expect(parsed && "concept" in parsed).toBe(false);
+  });
+
+  it.each([
+    ["not an object", "nope"],
+    ["null", null],
+    ["missing headline", sampleInsightPayload({ headline: undefined })],
+    ["invalid confidence", sampleInsightPayload({ confidence: "extremely" })],
+    ["invalid source", sampleInsightPayload({ source: "groq-direct" })],
+  ])("parseInsightResponse rejects %s", (_label, input) => {
+    expect(parseInsightResponse(input)).toBeNull();
+  });
+
+  it("updateSessionAttemptInsight patches only the entry with the matching id, leaving others untouched", async () => {
+    await recordLearningEvent(sampleEvent()); // entry 1
+    await recordLearningEvent(sampleEvent({ concept: "Escape Velocity" })); // entry 2
+    const [first, second] = readSessionHistory();
+    expect(first.id).toBeDefined();
+    expect(second.id).toBeDefined();
+    expect(first.id).not.toBe(second.id);
+
+    updateSessionAttemptInsight(second.id!, { headline: "h", explanation: "e", suggestion: "s", confidence: "medium", source: "ai" });
+    const after = readSessionHistory();
+    expect(after[0].insight).toBeUndefined();
+    expect(after[1].insight).toEqual({ headline: "h", explanation: "e", suggestion: "s", confidence: "medium", source: "ai" });
+    expect(after.length).toBe(2); // never appends a new entry
+  });
+
+  it("updateSessionAttemptInsight with an unknown id is a silent no-op - never throws, never appends", async () => {
+    await recordLearningEvent(sampleEvent());
+    expect(() => updateSessionAttemptInsight("not-a-real-id", { headline: "h", explanation: "e", suggestion: "s", confidence: "high", source: "ai" })).not.toThrow();
+    const history = readSessionHistory();
+    expect(history.length).toBe(1);
+    expect(history[0].insight).toBeUndefined();
+  });
+
+  // 8. The 5 core modules (GameCanvas.tsx/PlayExperience.tsx) can't be
+  // rendered in this repo's test harness (no DOM/component runner - see
+  // this project's established convention), but they use the exact SAME
+  // two-step primitives learningEventPipeline.ts's own recordLearningEvent
+  // does internally: PlayExperience.tsx's handleResult calls
+  // appendSessionAttempt with `id: event.attemptId`, and GameCanvas.tsx's
+  // requestAiInsight later calls updateSessionAttemptInsight with that SAME
+  // id once its response resolves (see both files' own comments). This
+  // reproduces that exact sequence directly against the shared primitives,
+  // proving the 5-core path's own mechanism is unaffected by Phase 5A.
+  it("8. the 5-core GameCanvas/PlayExperience flow (append with attemptId, later patch by the same id) persists the insight correctly", () => {
+    const attemptId = newSessionAttemptId();
+    const entry: SessionAttempt = {
+      id: attemptId,
+      timestamp: Date.now(),
+      module: "projectile_motion",
+      concept: "Speed & Range",
+      success: true,
+      performance: 0.9,
+      masteryBefore: 0.3,
+      masteryAfter: 0.4,
+      difficulty: "Beginner",
+    };
+    appendSessionAttempt(entry); // PlayExperience.tsx's handleResult
+    expect(readSessionHistory().length).toBe(1);
+    expect(readSessionHistory()[0].insight).toBeUndefined();
+
+    // GameCanvas.tsx's requestAiInsight, once its /api/insight fetch resolves.
+    const insight = parseInsightResponse(sampleInsightPayload({ headline: "Projectile insight" }));
+    expect(insight).not.toBeNull();
+    if (insight) updateSessionAttemptInsight(attemptId, insight);
+
+    const history = readSessionHistory();
+    expect(history.length).toBe(1); // still exactly one entry, never a second
+    expect(history[0].module).toBe("projectile_motion");
+    expect(history[0].insight?.headline).toBe("Projectile insight");
+  });
+});
+
+describe("Phase 5A - 1/2/3/6/7. a successful AI response is persisted onto the correct SessionAttempt, never a duplicate", () => {
+  it("1/2. a successful AI response is stored in SessionAttempt.insight, on the same attempt that produced it", async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => sampleInsightPayload({ headline: "Nice work" }) });
+    await recordLearningEvent(sampleEvent());
+    const [entry] = readSessionHistory();
+    expect(entry.insight).toEqual({
+      headline: "Nice work",
+      explanation: "Your result matched the target.",
+      suggestion: "Try the next challenge.",
+      confidence: "high",
+      source: "ai",
+    });
+  });
+
+  it("3. two attempts each receive their own corresponding insight, never swapped or merged", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => sampleInsightPayload({ headline: "First insight" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => sampleInsightPayload({ headline: "Second insight" }) });
+
+    await recordLearningEvent(sampleEvent({ concept: "Orbital Velocity" }));
+    await recordLearningEvent(sampleEvent({ concept: "Escape Velocity" }));
+
+    const history = readSessionHistory();
+    expect(history.length).toBe(2);
+    const orbital = history.find((a) => a.concept === "Orbital Velocity");
+    const escape = history.find((a) => a.concept === "Escape Velocity");
+    expect(orbital?.insight?.headline).toBe("First insight");
+    expect(escape?.insight?.headline).toBe("Second insight");
+  });
+
+  it("6/7. no duplicate SessionAttempt or LearningEvent is created by receiving the AI response", async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => sampleInsightPayload() });
+    await recordLearningEvent(sampleEvent());
+    expect(readSessionHistory().length).toBe(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1); // one LearningEvent -> one /api/insight call, never two
+  });
+
+  it("4. an AI failure (network error) never prevents the SessionAttempt from being stored - it exists with insight left unset", async () => {
+    fetchMock.mockRejectedValue(new Error("network down"));
+    await recordLearningEvent(sampleEvent());
+    const history = readSessionHistory();
+    expect(history.length).toBe(1);
+    expect(history[0].insight).toBeUndefined();
+  });
+
+  it("4b. a malformed AI response never prevents the SessionAttempt from being stored, and is never persisted as an insight", async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ nonsense: true }) });
+    await recordLearningEvent(sampleEvent());
+    const history = readSessionHistory();
+    expect(history.length).toBe(1);
+    expect(history[0].insight).toBeUndefined();
+  });
+
+  it("5. an AI failure never throws out of recordLearningEvent - gameplay is never blocked on it", async () => {
+    fetchMock.mockRejectedValue(new Error("network down"));
+    await expect(recordLearningEvent(sampleEvent())).resolves.toBeUndefined();
+  });
+});
+
+describe("A. Gravitation attempt -> LearningEvent -> session history -> AI insight", () => {
+  it("9. a submitted Gravitation attempt is recorded through the shared pipeline, and a successful AI response is persisted onto it", async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => sampleInsightPayload({ headline: "Gravitation insight" }) });
     const engine = new AdaptiveEngine(MODULE_GRAVITATION); // defaults to the first SCORED concept (Orbital Velocity)
     const challenge = engine.generateNextChallenge();
     const setup = gravitationSimSetupFor(challenge);
@@ -175,13 +340,15 @@ describe("A. Gravitation attempt -> LearningEvent -> session history", () => {
     expect(history.length).toBe(1);
     expect(history[0].module).toBe("gravitation_orbits");
     expect(history[0].masteryAfter).toBe(result.masteryAfter);
+    expect(history[0].insight?.headline).toBe("Gravitation insight");
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual(result.event);
   });
 });
 
-describe("B. Wave attempt -> LearningEvent -> session history", () => {
-  it("a submitted Wave Motion attempt is recorded through the shared pipeline", async () => {
+describe("B. Wave attempt -> LearningEvent -> session history -> AI insight", () => {
+  it("10. a submitted Wave Motion attempt is recorded through the shared pipeline, and a successful AI response is persisted onto it", async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => sampleInsightPayload({ headline: "Wave insight" }) });
     const engine = new AdaptiveEngine(MODULE_WAVES);
     engine.currentConceptId = WAVE_CONCEPT_AMPLITUDE;
     const challenge = engine.generateNextChallenge();
@@ -200,12 +367,14 @@ describe("B. Wave attempt -> LearningEvent -> session history", () => {
     const history = readSessionHistory();
     expect(history.length).toBe(1);
     expect(history[0].module).toBe("wave_motion");
+    expect(history[0].insight?.headline).toBe("Wave insight");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
 
-describe("C. Archimedes attempt -> LearningEvent -> session history", () => {
-  it("a submitted Archimedes attempt is recorded through the shared pipeline", async () => {
+describe("C. Archimedes attempt -> LearningEvent -> session history -> AI insight", () => {
+  it("11. a submitted Archimedes attempt is recorded through the shared pipeline, and a successful AI response is persisted onto it", async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => sampleInsightPayload({ headline: "Archimedes insight" }) });
     const engine = new AdaptiveEngine(MODULE_ARCHIMEDES); // defaults to Buoyant Force
     const challenge = engine.generateNextChallenge();
     const ac = challenge.archimedesChallenge as ArchimedesNumericChallenge;
@@ -224,6 +393,7 @@ describe("C. Archimedes attempt -> LearningEvent -> session history", () => {
     const history = readSessionHistory();
     expect(history.length).toBe(1);
     expect(history[0].module).toBe("archimedes_buoyancy");
+    expect(history[0].insight?.headline).toBe("Archimedes insight");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
