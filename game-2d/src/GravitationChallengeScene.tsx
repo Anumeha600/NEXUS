@@ -36,6 +36,7 @@ import {
   validateGravitationVelocityInput,
 } from "./gravitationChallenge";
 import { recordGravitationAttempt, type GravitationAttemptResult } from "./gravitationLearning";
+import { recordLearningEvent } from "./learningEventPipeline";
 
 const TERMINAL_OUTCOMES = ["collision", "orbit", "escape"] as const;
 type TerminalOutcome = (typeof TERMINAL_OUTCOMES)[number];
@@ -195,6 +196,11 @@ export default function GravitationChallengeScene() {
       attemptNumber: attemptNumberRef.current,
     });
     setAttemptResult(result);
+    // Same session-history + AI-insight pathway the 5 core modules use via
+    // GameCanvas.tsx - fire-and-forget, never blocks progression (see
+    // learningEventPipeline.ts's own header for why this isn't inside
+    // gravitationLearning.ts).
+    if (result.supported) void recordLearningEvent(result.event);
   }
 
   return (

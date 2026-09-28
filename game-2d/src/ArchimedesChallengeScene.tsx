@@ -34,6 +34,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ArchimedesScene from "./ArchimedesScene";
 import { AdaptiveEngine, MODULE_ARCHIMEDES, type Challenge } from "./adaptiveEngine";
 import { recordArchimedesAttempt, type ArchimedesAttemptResult } from "./archimedesLearning";
+import { recordLearningEvent } from "./learningEventPipeline";
 import {
   ARCHIMEDES_FLUIDS,
   givenFieldsForArchimedesChallenge,
@@ -208,6 +209,11 @@ export default function ArchimedesChallengeScene() {
       attemptNumber: attemptNumberRef.current,
     });
     setAttemptResult(result);
+    // Same session-history + AI-insight pathway the 5 core modules use via
+    // GameCanvas.tsx - fire-and-forget, never blocks progression (see
+    // learningEventPipeline.ts's own header for why this isn't inside
+    // archimedesLearning.ts).
+    if (result.supported) void recordLearningEvent(result.event);
   }
 
   function handleSubmit() {

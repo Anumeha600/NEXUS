@@ -27,7 +27,8 @@ export default function Hero() {
             difficulty and learning content based on your performance —
             across five core adaptive modules (Projectile Motion,
             Newton&apos;s Laws, Work &amp; Energy, Momentum &amp; Collisions,
-            and Circular Motion), plus the Gravitation &amp; Orbits lab.
+            and Circular Motion), plus three more physics labs: Gravitation
+            &amp; Orbits, Wave Motion, and Archimedes&apos; Principle.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">

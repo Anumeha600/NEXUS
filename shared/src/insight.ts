@@ -109,7 +109,13 @@ async function tryLlmProvider(event: LearningEvent): Promise<RawInsight | null> 
       body: JSON.stringify({
         model,
         temperature: 0.4,
-        max_tokens: 260,
+        // Generous enough for a reasoning model (e.g. Groq's gpt-oss family)
+        // whose completion_tokens budget covers its own hidden reasoning
+        // trace as well as the final JSON content - a low budget here
+        // truncates the JSON mid-string before the model reaches its
+        // closing brace, which JSON.parse below would otherwise report as
+        // a malformed response and silently fall back on every call.
+        max_tokens: 700,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: JSON.stringify(event) },

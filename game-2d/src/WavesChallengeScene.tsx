@@ -31,6 +31,7 @@ import { AdaptiveEngine, MODULE_WAVES, type Challenge } from "./adaptiveEngine";
 import { waveSpeed, type WaveParams, type InterferenceType } from "./wavesPhysics";
 import { WAVE_CONCEPT_SUPERPOSITION, givenFieldsForWaveChallenge, validateWaveAnswer, type WaveChallenge, type WaveSolveTarget } from "./wavesChallenge";
 import { recordWaveAttempt, type WaveAttemptResult } from "./wavesLearning";
+import { recordLearningEvent } from "./learningEventPipeline";
 import WavesScene from "./WavesScene";
 import HowToPlay from "./HowToPlay";
 
@@ -214,6 +215,11 @@ export default function WavesChallengeScene() {
       attemptNumber: attemptNumberRef.current,
     });
     setAttemptResult(result);
+    // Same session-history + AI-insight pathway the 5 core modules use via
+    // GameCanvas.tsx - fire-and-forget, never blocks progression (see
+    // learningEventPipeline.ts's own header for why this isn't inside
+    // wavesLearning.ts).
+    if (result.supported) void recordLearningEvent(result.event);
   }
 
   function handleSubmit() {
