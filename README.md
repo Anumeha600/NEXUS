@@ -17,6 +17,15 @@
 
 ---
 
+## 🧪 Tested & Validated
+
+> **603 / 603 tests passing • 0 failures**
+
+Validated across **Physics Engines • Challenge Generation • Adaptive Learning • Mastery Tracking • 8 Physics Labs • Learning Events • Session History • AI Insight Pipeline • Module Integration**
+
+**Typecheck ✓  Lint ✓  Build ✓**
+
+
 ## 🚀 Overview
 
 **NEXUS** is an AI-powered adaptive Physics learning game that turns every student attempt into a signal for what to learn next.
