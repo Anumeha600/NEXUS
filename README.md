@@ -9,9 +9,6 @@
 
 **Learn Physics by experimenting.**
 
-**Hackathon:** Bit N Build – Around the World 2026  
-**Problem Statement:** PSN018 – AI-Powered Adaptive Learning Game
-
 🌐 **Live Demo:** https://nexus-web-2d.vercel.app/  
 📦 **GitHub:** https://github.com/Anumeha600/NEXUS
 
